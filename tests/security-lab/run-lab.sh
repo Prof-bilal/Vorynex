@@ -36,21 +36,34 @@ trap cleanup EXIT
 
 # --- enforcement wrapper -----------------------------------------------------
 # PROTECTED_CMD is a prefix applied before `node <attack.js> ...`.
-# If unset, build and use the interim Warden engine.
+#
+# Default engine is `warden` (the interim engine, which works everywhere). Set
+# LAB_ENGINE=vorynex to run the protection phase under Vorynex's Tier 0
+# (spawn-time Landlock) shim instead — this requires a kernel where Landlock
+# exec behaves normally (see docs/SECURITY_TESTING.md).
+LAB_ENGINE="${LAB_ENGINE:-warden}"
+POLICY="$WORK/protect.yaml"
+sed -e "s|__APP__|$APP|g" -e "s|__OUT__|$APPOUT|g" \
+    "$HERE/policy/protect.yaml.template" > "$POLICY"
+
 PROTECTED_CMD="${PROTECTED_CMD:-}"
 if [[ -z "$PROTECTED_CMD" ]]; then
   if ! command -v go >/dev/null; then
-    echo "no PROTECTED_CMD and Go is unavailable to build the Warden engine." >&2
+    echo "no PROTECTED_CMD and Go is unavailable to build the engine." >&2
     echo "Install Go, or set PROTECTED_CMD to your enforcement wrapper." >&2
     exit 2
   fi
-  WARDEN="$WORK/warden"
-  (cd "$ROOT/upstream/warden/warden-starter/warden" && go build -o "$WARDEN" ./cmd/warden) || {
-    echo "failed to build the Warden engine" >&2; exit 2; }
-  POLICY="$WORK/protect.yaml"
-  sed -e "s|__APP__|$APP|g" -e "s|__OUT__|$APPOUT|g" \
-      "$HERE/policy/protect.yaml.template" > "$POLICY"
-  PROTECTED_CMD="$WARDEN run --backend linux --policy $POLICY --"
+  if [[ "$LAB_ENGINE" == "warden" ]]; then
+    WARDEN="$WORK/warden"
+    (cd "$ROOT/upstream/warden/warden-starter/warden" && go build -o "$WARDEN" ./cmd/warden) || {
+      echo "failed to build the Warden engine" >&2; exit 2; }
+    PROTECTED_CMD="$WARDEN run --backend linux --policy $POLICY --"
+  else
+    VORYNEX="$WORK/vorynex"
+    (cd "$ROOT" && go build -o "$VORYNEX" ./cmd/vorynex) || {
+      echo "failed to build the vorynex engine" >&2; exit 2; }
+    PROTECTED_CMD="$VORYNEX exec --policy $POLICY --"
+  fi
 fi
 
 # --- loopback collector (host-side evidence) ---------------------------------

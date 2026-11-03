@@ -115,6 +115,40 @@ This is why `process.exec` containment ([ROADMAP.md](ROADMAP.md), Milestone 4)
 is the first enforcement capability built, not an afterthought. The lab will
 only report `Overall: PASS` once shell execution is denied.
 
+## Tier 0 (Landlock) validation status
+
+The spawn-time shim (`engine/enforce/spawntime`, used via
+`vorynex exec --policy <file> -- <cmd>`) applies a Landlock ruleset. What was
+verified and what was not:
+
+**Verified on the development host (kernel 7.2.8-9-omarchy):**
+- Landlock ABI is present and the ruleset is created and enforced
+  (`landlock_create_ruleset` / `landlock_add_rule` / `landlock_restrict_self`
+  all succeed).
+- Rules are accepted for specific paths; the deny-by-default model applies.
+
+**NOT verified — blocked by a kernel anomaly on this host:**
+- Selective **exec** containment. On this kernel, `execve` of the workload was
+  denied unless `READ|EXECUTE` was granted on `/`; granting `READ` on `/` made
+  the entire filesystem readable, which **defeats the filesystem boundary**.
+  A rule on a subdirectory did not reliably make its contents executable
+  (tested across btrfs and tmpfs). Mainstream Landlock does not behave this way,
+  so this is treated as a host-kernel anomaly, not a design flaw.
+- Consequently the lab's `shell_spawn` / `bash_spawn` scenarios cannot yet be
+  turned green by the Vorynex shim **on this host**. `LAB_ENGINE=vorynex`
+  exercises the shim; `LAB_ENGINE=warden` (default) uses the interim engine so
+  the harness runs everywhere.
+
+**Consequences for the roadmap:**
+- Tier 0 must be re-validated on an LTS kernel (e.g. 6.8 inside a container or
+  VM) before it is claimed as an exec boundary.
+- File-granular exec containment (deny `/bin/bash`, allow `node`) should be
+  delivered by **Tier 1 (eBPF-LSM)**, which is precise and attaches to a
+  running process. This is now the priority for the `process.exec` capability.
+- Tier 0 remains valuable for **filesystem** least-privilege and (port-scoped)
+  egress control, and works unprivileged inside a container where `bwrap`
+  cannot run.
+
 ## Safety
 
 - Decoy data only (`DECOY-...-NOT-REAL`).

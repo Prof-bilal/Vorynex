@@ -1,13 +1,17 @@
 // Command vorynex is the Vorynex agent CLI.
 //
-// Milestone 1 scaffold: the command surface is defined here, but enforcement
-// (Tier 0 spawn-time, Tier 1 live) is not implemented yet. Commands that are
-// not yet available say so rather than pretending to protect a workload.
+// Tier 0 enforcement (spawn-time, Landlock) is implemented for `vorynex exec`,
+// which launches a workload under a least-privilege runtime boundary. The
+// remaining commands are not implemented yet and say so rather than pretending
+// to protect a workload.
 package main
 
 import (
 	"fmt"
 	"os"
+
+	"github.com/vorynex/vorynex/engine/enforce/spawntime"
+	"github.com/vorynex/vorynex/engine/policy"
 )
 
 const version = "0.0.1-dev"
@@ -18,6 +22,8 @@ Usage:
   vorynex <command> [arguments]
 
 Commands:
+  exec        Launch a workload under a Tier 0 (spawn-time) boundary
+                vorynex exec --policy <file> -- <command...>
   connect     Connect this host and discover the application (Milestone 2)
   observe     Profile the workload without enforcing (Milestone 3)
   protect     Enable high-confidence enforcement (Milestone 4)
@@ -26,7 +32,7 @@ Commands:
   doctor      Report platform + enforcement capabilities
   version     Print the version
 
-Enforcement is not implemented in this build. See docs/ARCHITECTURE.md.`
+See docs/ARCHITECTURE.md.`
 
 func main() {
 	args := os.Args[1:]
@@ -39,6 +45,11 @@ func main() {
 		fmt.Printf("vorynex %s\n", version)
 	case "help", "--help", "-h":
 		fmt.Println(usage)
+	case "exec":
+		if err := runExec(args[1:]); err != nil {
+			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
+			os.Exit(1)
+		}
 	case "doctor":
 		fmt.Println("capability reporting not implemented yet (Milestone 1)")
 	default:
@@ -46,4 +57,39 @@ func main() {
 		fmt.Fprintln(os.Stderr, "run `vorynex help` for the command surface")
 		os.Exit(2)
 	}
+}
+
+// runExec parses `--policy <file> -- <command...>`, loads the policy, and
+// launches the command under the spawn-time boundary. On success it never
+// returns: the process image is replaced by the workload.
+func runExec(args []string) error {
+	var policyPath string
+	i := 0
+	for i < len(args) && args[i] != "--" {
+		switch args[i] {
+		case "--policy":
+			if i+1 >= len(args) {
+				return fmt.Errorf("--policy requires a value")
+			}
+			policyPath = args[i+1]
+			i += 2
+		default:
+			return fmt.Errorf("unknown flag %q (want --policy <file> -- <command...>)", args[i])
+		}
+	}
+	if i >= len(args) {
+		return fmt.Errorf("missing `--` before the command")
+	}
+	cmd := args[i+1:]
+	if policyPath == "" {
+		return fmt.Errorf("--policy is required")
+	}
+	if len(cmd) == 0 {
+		return fmt.Errorf("no command after `--`")
+	}
+	p, err := policy.Load(policyPath)
+	if err != nil {
+		return err
+	}
+	return spawntime.Run(cmd, p)
 }

@@ -47,6 +47,10 @@ type Policy struct {
 	// Limits constrains address-space use and wall-clock execution time.
 	Limits Limits `yaml:"limits"`
 
+	// Process restricts which executables the workload may run. This is a
+	// Vorynex extension; Warden has no process-execution control.
+	Process Process `yaml:"process,omitempty"`
+
 	// MCP contains configuration for MCP client proxy mode (optional).
 	// When present, enables MCP proxy functionality with specified settings.
 	MCP *MCP `yaml:"mcp,omitempty"`
@@ -85,6 +89,20 @@ type Env struct {
 type Limits struct {
 	MemoryMB int `yaml:"memory_mb,omitempty"`
 	TimeoutS int `yaml:"timeout_s,omitempty"`
+}
+
+// Process is the process-execution section of a policy (Vorynex extension).
+type Process struct {
+	// Exec restricts which binaries may be executed.
+	Exec ExecRules `yaml:"exec,omitempty"`
+}
+
+// ExecRules is an allow/deny list of absolute executable paths. With the
+// spawn-time shim, only Allow (plus the launched command itself) may be
+// executed; everything else is denied, and Deny always wins.
+type ExecRules struct {
+	Allow []string `yaml:"allow,omitempty"`
+	Deny  []string `yaml:"deny,omitempty"`
 }
 
 // MCP is the MCP proxy section of a policy. When present, enables MCP
@@ -242,6 +260,16 @@ func (p *Policy) Validate() error {
 	for i, host := range p.Network.Allow {
 		if err := validateHost(host); err != nil {
 			return fmt.Errorf("network.allow[%d]: %w", i, err)
+		}
+	}
+	for i, path := range p.Process.Exec.Allow {
+		if !filepath.IsAbs(path) {
+			return fmt.Errorf("process.exec.allow[%d]: %q must be absolute", i, path)
+		}
+	}
+	for i, path := range p.Process.Exec.Deny {
+		if !filepath.IsAbs(path) {
+			return fmt.Errorf("process.exec.deny[%d]: %q must be absolute", i, path)
 		}
 	}
 	for _, name := range p.Env.Allow {

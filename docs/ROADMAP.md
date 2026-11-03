@@ -32,14 +32,17 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
 - [ ] Zero enforcement; "would-have-blocked" report
 
 ## Milestone 4 — Protect mode (Tier 0)
-- [ ] Landlock + seccomp spawn-time shim (unprivileged, in-container)
-- [ ] Shell/exec allowlist; sensitive-path denies; egress baseline
+- [x] Policy `process` section (Vorynex extension) + `vorynex exec` command
+- [x] Landlock spawn-time shim for filesystem + egress (`engine/enforce/spawntime`)
+- [ ] **Re-validate Tier 0 exec containment on an LTS kernel** (blocked on this
+      host — see [SECURITY_TESTING.md](SECURITY_TESTING.md#tier-0-landlock-validation-status))
+- [ ] Shell/exec allowlist enforcement (moved to Tier 1 — see Milestone 5)
 - [ ] High-confidence-only blocking (the seven MVP protections)
 - [ ] False-positive measurement on real traffic
 
 ## Milestone 5 — Tier 1 live enforcement
 - [ ] eBPF-LSM attach per cgroup (`security_bprm_check`, `file_open`,
-      `socket_connect`, `capable`)
+      `socket_connect`, `capable`) — **priority: file-granular exec containment**
 - [ ] cgroups v2 resource anchoring; nftables egress
 - [ ] Kernel capability detection + honest degradation
 - [ ] Verify no-workload-kill by default; no-outage containment
