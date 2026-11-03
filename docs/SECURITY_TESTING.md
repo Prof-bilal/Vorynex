@@ -139,12 +139,37 @@ verified and what was not:
   exercises the shim; `LAB_ENGINE=warden` (default) uses the interim engine so
   the harness runs everywhere.
 
+**Confirmed on CI (ubuntu-latest, kernel 7.0.0-1017-azure, Landlock ABI 8):**
+the lab's Tier 0 step failed the same way — the shim could not even start the
+workload (`vorynex: permission denied`). So this is not a host quirk.
+
+**Root cause isolated (kernel-level, not our code):**
+[`tests/security-lab/landlock-probe.c`](../tests/security-lab/landlock-probe.c)
+is a standalone C reproducer. On both kernels, a Landlock rule granting
+EXECUTE|READ on a **subdirectory** did not permit executing files inside it,
+while a rule on `/usr` (or `/`) did:
+
+```text
+rule /usr      -> /usr/bin/bash      RAN
+rule /usr/bin  -> /usr/bin/bash      DENIED
+rule /tmp      -> /tmp/labdir/ls     DENIED
+rule /var/tmp  -> /var/tmp/labdir/ls DENIED
+```
+
+This contradicts documented Landlock semantics (a rule on a directory is
+supposed to cover its whole hierarchy) and reproduces independent of Vorynex,
+so it is a kernel-level behaviour on the 7.x series. Reproduce with:
+```bash
+clang -o /tmp/landlock-probe tests/security-lab/landlock-probe.c && /tmp/landlock-probe /usr/bin /usr/bin/bash
+```
+
 **Consequences for the roadmap:**
-- Tier 0 must be re-validated on an LTS kernel (e.g. 6.8 inside a container or
-  VM) before it is claimed as an exec boundary.
-- File-granular exec containment (deny `/bin/bash`, allow `node`) should be
-  delivered by **Tier 1 (eBPF-LSM)**, which is precise and attaches to a
-  running process. This is now the priority for the `process.exec` capability.
+- Tier 0 must be re-validated on an **LTS kernel** (5.15 / 6.8) where Landlock
+  is expected to behave as documented. The CI `lab` job is pinned to
+  `ubuntu-24.04` (kernel 6.8) for exactly this check.
+- If LTS kernels behave, Tier 0 is viable in production and the 7.x result is a
+  release-kernel regression; if not, Tier 0 exec containment is abandoned in
+  favour of **Tier 1 (eBPF-LSM)**.
 - Tier 0 remains valuable for **filesystem** least-privilege and (port-scoped)
   egress control, and works unprivileged inside a container where `bwrap`
   cannot run.

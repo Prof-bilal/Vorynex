@@ -24,14 +24,13 @@ jobs:
       - name: test
         run: go test ./...
 
-  # Tier 0 (Landlock) validation on a mainstream kernel. This could not be
-  # validated on the authoring host (a development 7.2.x kernel where Landlock
-  # exec behaved anomalously); CI runs on ubuntu-latest, so this job is where
-  # the anomaly is confirmed or refuted. It is informational
-  # (continue-on-error) until the exec scenarios are green, then flip it to
-  # required. See docs/SECURITY_TESTING.md.
+  # Tier 0 (Landlock) validation. Pinned to ubuntu-24.04 (kernel 6.8, an LTS
+  # kernel) because the Tier 0 exec boundary could not be validated on the 7.x
+  # kernels (local dev host and ubuntu-latest) — see docs/SECURITY_TESTING.md
+  # and tests/security-lab/landlock-probe.c. Informational until the exec
+  # scenarios go green, then flip it to required.
   lab:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
