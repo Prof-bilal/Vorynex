@@ -10,20 +10,30 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
 - [ ] ICP validation interviews (self-hosted Docker / small SaaS)
 - [ ] Freeze the enforcement-tier design (Tier 0 Landlock+seccomp; Tier 1 eBPF-LSM)
 
-## Milestone 1 — Extract/reuse the Warden runtime engine
+## Milestone 1 — Extract/reuse the Warden runtime engine  ✅ done
 - [x] Vendor/adapt `policy`, `proxy`, `audit`, and `envfilter` into `engine/`
       with MIT attribution ([`engine/NOTICE.md`](../engine/NOTICE.md))
 - [x] Single Go module (`github.com/vorynex/vorynex`) tying `engine/` and
       `cmd/vorynex`
 - [x] CI: gofmt + vet + build + unit tests (`.github/workflows/ci.yml`)
 - [x] `cmd/vorynex` scaffold (`version`, `help`)
-- [ ] Vendor the spawn-time arg builders (`BuildBwrapArgs`, `BuildDockerArgs`)
-- [ ] `vorynex doctor` (platform capability report)
+- [x] `vorynex doctor` (platform capability report)
+- **Decision — spawn-time arg builders (`BuildBwrapArgs`/`BuildDockerArgs`)
+  are *not* vendored.** Tier 0 uses Landlock, which is unprivileged and works
+  inside a container where `bwrap` cannot run; vendoring a second backend that
+  the MVP does not use would be premature complexity. `bwrap` remains a
+  possible future stronger *host* backend (mount-level hiding) — revisit only
+  if a host deployment needs it. See [ARCHITECTURE.md](ARCHITECTURE.md).
 
-## Milestone 2 — Node/Docker workload discovery
-- [ ] Docker API/inspect (read-only) workload detection
-- [ ] Node/Next.js/Express identification
-- [ ] Discover writable paths, network deps, sensitive paths
+## Milestone 2 — Node/Docker workload discovery  ✅ done
+- [x] Docker API/inspect (read-only) workload detection
+      (`engine/discovery`: list + `docker inspect`)
+- [x] Node/Next.js/Express identification
+- [x] Discover writable paths, sensitive paths, and secret env **names**
+      (`vorynex discover --details`)
+- Note: static discovery covers mounts, working dir, network mode, published
+  ports, and secret-named env vars. Runtime **egress dependencies** (which hosts
+  the app actually talks to) are learned in Observe mode (Milestone 3).
 
 ## Milestone 3 — Observe mode
 - [ ] Behavioral profiler with confidence scoring

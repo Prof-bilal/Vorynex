@@ -25,6 +25,7 @@ Commands:
   exec        Launch a workload under a Tier 0 (spawn-time) boundary
                 vorynex exec --policy <file> -- <command...>
   discover    List running containers and their detected runtime
+                --details to classify writable paths, sensitive mounts, secrets
   doctor      Report platform + enforcement capabilities
   connect     Connect this host and discover the application (Milestone 2)
   observe     Profile the workload without enforcing (Milestone 3)
@@ -54,7 +55,7 @@ func main() {
 	case "doctor":
 		runDoctor()
 	case "discover":
-		if err := runDiscover(); err != nil {
+		if err := runDiscover(args[1:]); err != nil {
 			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
 			os.Exit(1)
 		}
