@@ -1,0 +1,19 @@
+# License
+
+Copyright (c) 2026 Vorynex. All rights reserved.
+
+Vorynex (the agent, the cloud control plane, and this repository's own code and
+documentation) is **proprietary and commercially licensed**. No license to use,
+copy, modify, or distribute Vorynex source is granted by this file.
+
+## Third-party components
+
+This repository vendors and builds on **Warden**, which is licensed under the
+MIT License and remains a separate, independent open-source project. Warden is
+included as a git submodule at `upstream/warden` and is **not** relicensed here.
+
+Any Vorynex source file that adapts, copies, or is derived from Warden retains
+the upstream MIT notice. See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)
+for the full text, and
+[`docs/OSS_COMMERCIAL_BOUNDARY.md`](docs/OSS_COMMERCIAL_BOUNDARY.md) for what
+stays open source versus commercial.

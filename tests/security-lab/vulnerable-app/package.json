@@ -1,0 +1,13 @@
+{
+  "name": "vorynex-security-lab-app",
+  "version": "0.0.1",
+  "private": true,
+  "description": "DELIBERATELY VULNERABLE app for the Vorynex security lab. Never deploy.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "attack": "node attack.js /tmp/lab-results.jsonl",
+    "benign": "node benign.js"
+  },
+  "license": "UNLICENSED"
+}
