@@ -185,7 +185,9 @@ func execDirs(exePath string, allow, deny []string) []string {
 	}
 	addBin := func(p string) {
 		addDir(filepath.Dir(p))
-		addDir(interpreterDir(p))
+		for _, d := range interpreterDirs(p) {
+			addDir(d)
+		}
 	}
 	addBin(exePath)
 	for _, a := range allow {

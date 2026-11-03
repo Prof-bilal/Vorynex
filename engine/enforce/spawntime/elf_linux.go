@@ -10,14 +10,35 @@ import (
 	"strings"
 )
 
-// interpreterDir returns the directory of the ELF program interpreter
-// (PT_INTERP) for path, or "" if it cannot be determined.
+// interpreterDirs returns the directories that must be granted EXECUTE so that
+// path's ELF interpreter can run.
 //
 // This matters for Landlock: executing a dynamically linked binary requires
 // EXECUTE on the binary *and* on its interpreter (e.g.
 // /lib64/ld-linux-x86-64.so.2). Granting EXECUTE only on the binary's own
 // directory leaves the interpreter non-executable and execve fails with EACCES.
-func interpreterDir(path string) string {
+//
+// The interpreter path is often a symlink chain (on Ubuntu
+// /lib64/ld-linux-x86-64.so.2 is a symlink into /usr/lib/x86_64-linux-gnu), and
+// Landlock rules match the resolved hierarchy, so we grant both the literal
+// directory and the symlink-resolved directory.
+func interpreterDirs(path string) []string {
+	interp := interpreterPath(path)
+	if interp == "" {
+		return nil
+	}
+	dirs := []string{filepath.Dir(interp)}
+	if real, err := filepath.EvalSymlinks(interp); err == nil {
+		if d := filepath.Dir(real); d != dirs[0] {
+			dirs = append(dirs, d)
+		}
+	}
+	return dirs
+}
+
+// interpreterPath returns the ELF program interpreter (PT_INTERP) string for
+// path, or "" if it cannot be determined (e.g. a static binary).
+func interpreterPath(path string) string {
 	f, err := os.Open(path)
 	if err != nil {
 		return ""
@@ -58,7 +79,7 @@ func interpreterDir(path string) string {
 		if !filepath.IsAbs(interp) {
 			return ""
 		}
-		return filepath.Dir(interp)
+		return interp
 	}
 	return ""
 }
