@@ -2,6 +2,16 @@
 
 Milestones, not calendar dates. Each milestone should leave something demoable.
 
+## Legend
+
+- `[x]` — done and verified (unit tests; the security lab for enforcement).
+- **✅ done** — every item listed under the milestone is complete.
+- **✅ core done** — the milestone's headline capability is implemented,
+  unit-tested, and verified end-to-end (lab/CI), but **at least one sub-item is
+  deliberately deferred** — usually because it is blocked on a later milestone,
+  on the continuous recorder/agent, or on real-world data. It does **not** mean
+  the milestone is complete; read the unchecked items under it.
+
 ## Milestone 0 — Architecture validation
 - [x] Warden deep audit ([WARDEN_AUDIT.md](WARDEN_AUDIT.md))
 - [x] Competitive + incident research ([COMPETITIVE_RESEARCH.md](COMPETITIVE_RESEARCH.md))
@@ -72,9 +82,16 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
 - [x] `vorynex policy generate --from <events.jsonl> [--out <file>] [--sign-key <file>]`
 - [ ] Signing-key management / trust root (cloud-side, Milestone 7)
 
-## Milestone 7 — Telemetry API
-- [ ] Outbound-only, resumable exporter; local-first buffering
-- [ ] Auth, host enrollment, event ingestion
+## Milestone 7 — Telemetry API  ✅ core done
+- [x] Local-first, size-bounded event spool with gap markers on overflow
+- [x] Resumable, outbound-only exporter (`engine/telemetry`); enforcement never
+      depends on it
+- [x] Host identity (`hostid`) + enrollment + persisted export cursor
+- [x] `vorynex telemetry status | export --endpoint <url> [--token <t>] [--once]`
+- [x] Minimal cloud ingestion API: `POST /v1/enroll`, `POST /v1/events`
+      (`cloud/api`, `cmd/vorynex-cloud`)
+- [ ] Real auth (per-host tokens, rotation), TLS, durable store (DB not JSONL)
+- [ ] Agent-enforced signing trust root (from Milestone 6)
 
 ## Milestone 8 — Dashboard
 - [ ] login, host, application, runtime status, policies, event timeline,

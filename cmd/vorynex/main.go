@@ -32,6 +32,7 @@ Commands:
                 vorynex observe -- <command...>
   policy      Generate a reviewable, signable policy from observed behavior
                 vorynex policy generate --from <events.jsonl> [--out <file>]
+  telemetry   status | export --endpoint <url> [--token <t>] [--once]
   protect     Enable high-confidence enforcement (Milestone 4)
   status      Show current mode, effective policy, and recent events
   trace       Show a human-readable attack trace
@@ -69,6 +70,11 @@ func main() {
 		}
 	case "policy":
 		if err := runPolicy(args[1:]); err != nil {
+			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
+			os.Exit(1)
+		}
+	case "telemetry":
+		if err := runTelemetry(args[1:]); err != nil {
 			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
 			os.Exit(1)
 		}

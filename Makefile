@@ -10,7 +10,7 @@ vet:
 	go vet ./...
 
 fmt:
-	gofmt -w engine cmd
+	gofmt -w engine cmd cloud
 
 ci: vet build test
 

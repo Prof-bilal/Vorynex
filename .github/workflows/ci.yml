@@ -16,7 +16,7 @@ jobs:
         with:
           go-version: '1.24'
       - name: gofmt
-        run: test -z "$(gofmt -l engine cmd)"
+        run: test -z "$(gofmt -l engine cmd cloud)"
       - name: vet
         run: go vet ./...
       - name: build

@@ -7,6 +7,7 @@ import (
 
 	"github.com/vorynex/vorynex/engine/audit"
 	"github.com/vorynex/vorynex/engine/profiler"
+	"github.com/vorynex/vorynex/engine/telemetry"
 )
 
 // runObserve runs a workload with NO enforcement, records every file/exec/network
@@ -54,6 +55,15 @@ func runObserve(args []string) error {
 	// kept observing. Never-promote classes are excluded regardless.
 	prof := profiler.Build([][]audit.Event{events}, profiler.Options{MinSessions: 1, MinCount: 2})
 	blocked := profiler.WouldBlock(events)
+
+	// Stream observed events into the local telemetry spool. This is
+	// local-first: the exporter drains it separately (docs/FAILURE_MODES.md).
+	if spool, err := telemetry.OpenSpool(telemetry.DefaultSpoolPath(), 0); err == nil {
+		for _, e := range events {
+			_ = spool.Append(e)
+		}
+	}
+
 	printObserveReport(path, len(events), prof, blocked)
 
 	if code != 0 {
