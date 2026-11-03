@@ -54,20 +54,24 @@ PROTECTED_CMD="vorynex protect --exec --" ./run-lab.sh
 
 An overall `PASS` requires zero FAIL, zero VOID, and benign operations intact.
 
-## Measured result with the interim Warden engine
+## Measured results
 
+**Vorynex Tier 0 engine (Landlock) — default:**
 ```text
-Attacks: 7   PASS 5 / FAIL 2 / VOID 0
+Attacks: 7   PASS 7 / FAIL 0 / VOID 0
 Benign: ok   Collector hits: control 2, protected 0
 ```
+Every attack is contained: shell execution, secret/SSH reads, cloud metadata,
+arbitrary egress, and writes outside the grant — and benign operations still
+work.
 
-`shell_spawn` and `bash_spawn` **FAIL**: Warden bind-mounts `/usr` read-only, so
-`/usr/bin/bash` and `/usr/bin/sh` are present and run. Every other scenario
-passes — secret reads, SSH exfil, metadata, and arbitrary egress are contained
-(bwrap netns + egress proxy, confirmed by zero protected collector hits), and
-writes outside the granted directory are denied.
+**Warden interim engine (`LAB_ENGINE=warden`), for comparison:**
+```text
+Attacks: 7   PASS 5 / FAIL 2 / VOID 0
+```
+Warden contains secrets, egress, and out-of-grant writes but **not shell
+execution** — it bind-mounts `/usr` read-only, so `/usr/bin/bash` runs.
 
-The overall verdict is therefore **FAIL**, which is the honest baseline that
-motivates the Tier 0/Tier 1 work in
-[ARCHITECTURE.md](../../docs/ARCHITECTURE.md). It will only turn PASS once
-`execve` of a shell is denied.
+The `landlock-probe.c` program checks what a host's kernel requires to execute a
+binary under Landlock (executing a dynamically linked binary also needs EXECUTE
+on its ELF interpreter directory, e.g. `/lib64`).

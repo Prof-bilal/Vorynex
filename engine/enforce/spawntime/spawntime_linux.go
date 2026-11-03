@@ -147,18 +147,12 @@ func restrict(p policy.Policy, exePath string) error {
 		}
 	}
 
-	// Executable control (standard Landlock pattern): grant READ|EXECUTE on the
-	// workload's directory and on any explicitly allowed executables' dirs.
-	// Everything else stays non-executable.
-	//
-	// VALIDATION NOTE: this pattern is known to work on mainstream kernels, but
-	// could NOT be validated on the development host used for this milestone
-	// (kernel 7.2.8-9-omarchy), where execve was denied unless READ|EXECUTE was
-	// granted on "/" — which in turn made the whole filesystem readable and
-	// defeated the filesystem boundary below. Treat Tier 0 exec containment as
-	// unverified until it is validated on an LTS kernel (e.g. inside a
-	// container/VM), and prefer Tier 1 (eBPF-LSM) for file-granular exec
-	// control. See docs/SECURITY_TESTING.md.
+	// Executable control: grant READ|EXECUTE on the workload's directory AND on
+	// its ELF interpreter's directory (e.g. /lib64). Executing a dynamically
+	// linked binary requires EXECUTE on both; granting only the binary's own
+	// directory leaves the interpreter non-executable and execve fails EACCES.
+	// Everything else stays non-executable, so shells and system binaries that
+	// live elsewhere cannot be run.
 	for _, dir := range execDirs(exePath, p.Process.Exec.Allow, p.Process.Exec.Deny) {
 		if err := addPathRule(fd, dir, read|accExecute); err != nil {
 			return err
@@ -174,24 +168,29 @@ func restrict(p policy.Policy, exePath string) error {
 	return nil
 }
 
-// execDirs returns the directories whose EXECUTE grant makes the workload (and
-// any explicitly allowed executables) runnable. The root directory is skipped:
-// granting EXECUTE on "/" would make the entire filesystem executable.
+// execDirs returns the directories whose EXECUTE grant makes a binary runnable:
+// the binary's own directory AND the directory of its ELF interpreter, because
+// executing a dynamically linked binary requires EXECUTE on both. The root
+// directory is skipped (granting EXECUTE on "/" would make everything
+// executable).
 func execDirs(exePath string, allow, deny []string) []string {
 	seen := make(map[string]bool)
 	var out []string
-	add := func(p string) {
-		d := filepath.Dir(p)
-		if d == "/" || d == "." || seen[d] {
+	addDir := func(d string) {
+		if d == "" || d == "/" || d == "." || seen[d] {
 			return
 		}
 		seen[d] = true
 		out = append(out, d)
 	}
-	add(exePath)
+	addBin := func(p string) {
+		addDir(filepath.Dir(p))
+		addDir(interpreterDir(p))
+	}
+	addBin(exePath)
 	for _, a := range allow {
 		if !isDenied(a, deny) {
-			add(a)
+			addBin(a)
 		}
 	}
 	return out

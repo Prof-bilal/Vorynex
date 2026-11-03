@@ -31,14 +31,16 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
 - [ ] Poisoning defenses implemented + tested
 - [ ] Zero enforcement; "would-have-blocked" report
 
-## Milestone 4 — Protect mode (Tier 0)
+## Milestone 4 — Protect mode (Tier 0)  ✅ core done
 - [x] Policy `process` section (Vorynex extension) + `vorynex exec` command
-- [x] Landlock spawn-time shim for filesystem + egress (`engine/enforce/spawntime`)
-- [ ] **Re-validate Tier 0 exec containment on an LTS kernel** (blocked on this
-      host — see [SECURITY_TESTING.md](SECURITY_TESTING.md#tier-0-landlock-validation-status))
-- [ ] Shell/exec allowlist enforcement (moved to Tier 1 — see Milestone 5)
-- [ ] High-confidence-only blocking (the seven MVP protections)
+- [x] Landlock spawn-time shim for filesystem, exec, and egress
+- [x] Shell/exec containment (lab `shell_spawn`/`bash_spawn` PASS) — fixed the
+      ELF-interpreter EXECUTE bug and the `NET_CONNECT_TCP` bit
+- [x] Lab 7/7 PASS under `LAB_ENGINE=vorynex`; CI enforces it
+- [ ] High-confidence-only blocking wired to the profiler (Milestone 3)
 - [ ] False-positive measurement on real traffic
+- [ ] File-granular exec control via Tier 1 (Landlock exec control is
+      directory-scoped)
 
 ## Milestone 5 — Tier 1 live enforcement
 - [ ] eBPF-LSM attach per cgroup (`security_bprm_check`, `file_open`,

@@ -73,21 +73,31 @@ cd tests/security-lab
 ./run-lab.sh                      # builds the app, runs control + protected phases
 ```
 
-Environment knobs: `PROTECTED_CMD` (the enforcement wrapper; defaults to the
-Warden binary from `upstream/warden` until the Vorynex agent exists),
-`LAB_TIMEOUT`, `LAB_OUT`.
+Environment knobs: `LAB_ENGINE` (`vorynex`, the default, uses the Tier 0 shim;
+`warden` uses the interim Warden engine), `PROTECTED_CMD` (override the wrapper),
+`LAB_OUT`.
 
 Evidence is written under `tests/security-lab/evidence/<stamp>/`:
 `summary.json`, `results.jsonl`, `control-*`, `protected-*`.
 
-## Measured result (Warden as interim engine)
+## Measured results
 
-Running the lab against today's Warden engine (`--backend linux`, bwrap)
-produced:
+### Vorynex Tier 0 engine (Landlock) — default
+
+```text
+Attacks: 7   PASS 7 / FAIL 0 / VOID 0
+Benign: ok   Collector hits: control 2, protected 0
+```
+
+All seven attacks are contained under `LAB_ENGINE=vorynex`: shell execution,
+secret/SSH reads, cloud metadata, arbitrary egress, and writes outside grants.
+Legitimate operations still work, and the collector received 2 requests
+unprotected and **0** protected (egress containment confirmed host-side).
+
+### Warden interim engine (bwrap) — for comparison
 
 ```text
 Attacks: 7   PASS 5 / FAIL 2 / VOID 0
-Benign: ok   Collector hits: control 2, protected 0
 ```
 
 | Attack | Control | Protected | Verdict |
@@ -100,79 +110,45 @@ Benign: ok   Collector hits: control 2, protected 0
 | egress_c2 | allowed | blocked | PASS |
 | write_system (outside grant) | allowed | blocked | PASS |
 
-Interpretation:
+Warden contains secrets, egress, and out-of-grant writes but **not shell
+execution**: it bind-mounts `/usr` read-only, so `/usr/bin/bash` runs. That is
+the gap the Vorynex Tier 0 shim closes.
 
-- **Contained today (5/7):** secret reads, SSH exfil, metadata, arbitrary egress
-  (`bwrap` netns + the egress proxy), and writes outside grants. The collector
-  received 2 requests unprotected and **0** protected — egress containment is
-  confirmed host-side.
-- **NOT contained today (2/7):** **`execve` of a shell.** Warden bind-mounts
-  `/usr` read-only, so `/usr/bin/bash` and `/usr/bin/sh` exist and run. This is
-  precisely the gap Tier 0 (Landlock + seccomp) and Tier 1 (eBPF-LSM) must
-  close.
+## Tier 0 (Landlock): what it enforces, and the two bugs it took to get right
 
-This is why `process.exec` containment ([ROADMAP.md](ROADMAP.md), Milestone 4)
-is the first enforcement capability built, not an afterthought. The lab will
-only report `Overall: PASS` once shell execution is denied.
+`engine/enforce/spawntime` (via `vorynex exec --policy <file> -- <cmd>`) applies
+an unprivileged Landlock ruleset: read-only runtime libraries; read/write only
+on granted paths; EXECUTE only on the workload's own directory **and its ELF
+interpreter's directory**; and all outbound TCP denied.
 
-## Tier 0 (Landlock) validation status
+Getting exec containment to work required fixing two real bugs in the shim,
+initially misdiagnosed as a kernel anomaly:
 
-The spawn-time shim (`engine/enforce/spawntime`, used via
-`vorynex exec --policy <file> -- <cmd>`) applies a Landlock ruleset. What was
-verified and what was not:
+1. **ELF interpreter EXECUTE.** Executing a dynamically linked binary requires
+   EXECUTE on the binary *and* on its interpreter
+   (`/lib64/ld-linux-x86-64.so.2`). Granting EXECUTE only on the binary's own
+   directory left the interpreter non-executable, so `execve` failed with
+   EACCES. Fixed by resolving `PT_INTERP` from the ELF header
+   ([`elf_linux.go`](../engine/enforce/spawntime/elf_linux.go)) and granting its
+   directory.
+2. **Network access bit.** `LANDLOCK_ACCESS_NET_CONNECT_TCP` is `1<<1`, not
+   `1<<0` (`1<<0` is `LANDLOCK_ACCESS_NET_BIND_TCP`). The shim was handling
+   *bind*, so outbound connects were allowed.
 
-**Verified on the development host (kernel 7.2.8-9-omarchy):**
-- Landlock ABI is present and the ruleset is created and enforced
-  (`landlock_create_ruleset` / `landlock_add_rule` / `landlock_restrict_self`
-  all succeed).
-- Rules are accepted for specific paths; the deny-by-default model applies.
-
-**NOT verified — blocked by a kernel anomaly on this host:**
-- Selective **exec** containment. On this kernel, `execve` of the workload was
-  denied unless `READ|EXECUTE` was granted on `/`; granting `READ` on `/` made
-  the entire filesystem readable, which **defeats the filesystem boundary**.
-  A rule on a subdirectory did not reliably make its contents executable
-  (tested across btrfs and tmpfs). Mainstream Landlock does not behave this way,
-  so this is treated as a host-kernel anomaly, not a design flaw.
-- Consequently the lab's `shell_spawn` / `bash_spawn` scenarios cannot yet be
-  turned green by the Vorynex shim **on this host**. `LAB_ENGINE=vorynex`
-  exercises the shim; `LAB_ENGINE=warden` (default) uses the interim engine so
-  the harness runs everywhere.
-
-**Confirmed on CI (ubuntu-latest, kernel 7.0.0-1017-azure, Landlock ABI 8):**
-the lab's Tier 0 step failed the same way — the shim could not even start the
-workload (`vorynex: permission denied`). So this is not a host quirk.
-
-**Root cause isolated (kernel-level, not our code):**
 [`tests/security-lab/landlock-probe.c`](../tests/security-lab/landlock-probe.c)
-is a standalone C reproducer. On both kernels, a Landlock rule granting
-EXECUTE|READ on a **subdirectory** did not permit executing files inside it,
-while a rule on `/usr` (or `/`) did:
+is a small standalone probe for verifying Landlock exec semantics on a host:
 
-```text
-rule /usr      -> /usr/bin/bash      RAN
-rule /usr/bin  -> /usr/bin/bash      DENIED
-rule /tmp      -> /tmp/labdir/ls     DENIED
-rule /var/tmp  -> /var/tmp/labdir/ls DENIED
-```
-
-This contradicts documented Landlock semantics (a rule on a directory is
-supposed to cover its whole hierarchy) and reproduces independent of Vorynex,
-so it is a kernel-level behaviour on the 7.x series. Reproduce with:
 ```bash
-clang -o /tmp/landlock-probe tests/security-lab/landlock-probe.c && /tmp/landlock-probe /usr/bin /usr/bin/bash
+clang -o /tmp/p tests/security-lab/landlock-probe.c
+/tmp/p /usr/bin/bash /usr/bin          # DENIED (interpreter not executable)
+/tmp/p /usr/bin/bash /usr/bin /lib64   # RAN
 ```
 
-**Consequences for the roadmap:**
-- Tier 0 must be re-validated on an **LTS kernel** (5.15 / 6.8) where Landlock
-  is expected to behave as documented. The CI `lab` job is pinned to
-  `ubuntu-24.04` (kernel 6.8) for exactly this check.
-- If LTS kernels behave, Tier 0 is viable in production and the 7.x result is a
-  release-kernel regression; if not, Tier 0 exec containment is abandoned in
-  favour of **Tier 1 (eBPF-LSM)**.
-- Tier 0 remains valuable for **filesystem** least-privilege and (port-scoped)
-  egress control, and works unprivileged inside a container where `bwrap`
-  cannot run.
+**Status:** Tier 0 exec containment is verified on the local host (kernel 7.2.8,
+Landlock ABI 10) and is exercised on CI (kernel 7.0.0-azure, Landlock ABI 8).
+Shell execution is contained by directory-scoped exec control (Landlock cannot
+deny an individual file inside an executable directory — see
+[ARCHITECTURE.md](ARCHITECTURE.md) and Tier 1 for file-granular control).
 
 ## Safety
 

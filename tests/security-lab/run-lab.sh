@@ -37,11 +37,10 @@ trap cleanup EXIT
 # --- enforcement wrapper -----------------------------------------------------
 # PROTECTED_CMD is a prefix applied before `node <attack.js> ...`.
 #
-# Default engine is `warden` (the interim engine, which works everywhere). Set
-# LAB_ENGINE=vorynex to run the protection phase under Vorynex's Tier 0
-# (spawn-time Landlock) shim instead — this requires a kernel where Landlock
-# exec behaves normally (see docs/SECURITY_TESTING.md).
-LAB_ENGINE="${LAB_ENGINE:-warden}"
+# Default engine is `vorynex` (the Tier 0 spawn-time Landlock shim). Set
+# LAB_ENGINE=warden to run the protection phase under the interim Warden engine
+# instead (kept for comparison; it does not contain shell execution).
+LAB_ENGINE="${LAB_ENGINE:-vorynex}"
 POLICY="$WORK/protect.yaml"
 sed -e "s|__APP__|$APP|g" -e "s|__OUT__|$APPOUT|g" \
     "$HERE/policy/protect.yaml.template" > "$POLICY"
@@ -129,12 +128,13 @@ BENIGN_RC=0
 BENIGN_DIR="$APPOUT" $PROTECTED_CMD node "$APP/benign.js" | tee "$OUT/benign-stdout.log" || BENIGN_RC=$?
 
 # --- verdicts ----------------------------------------------------------------
-python3 - "$CONTROL_JSONL" "$PROTECTED_JSONL" "$CONTROL_HITS" "$PROTECTED_HITS" "$OUT" "$BENIGN_RC" "$HITS" <<'PY'
+python3 - "$CONTROL_JSONL" "$PROTECTED_JSONL" "$CONTROL_HITS" "$PROTECTED_HITS" "$OUT" "$BENIGN_RC" "$HITS" "$LAB_ENGINE" <<'PY'
 import json, pathlib, sys
 
 control_p = pathlib.Path(sys.argv[1]); protected_p = pathlib.Path(sys.argv[2])
 control_hits = int(sys.argv[3]); protected_hits = int(sys.argv[4])
 out = pathlib.Path(sys.argv[5]); benign_rc = int(sys.argv[6]); hits_p = pathlib.Path(sys.argv[7])
+engine = sys.argv[8] if len(sys.argv) > 8 else "unknown"
 
 def load(p):
     if not p.exists():
@@ -163,7 +163,7 @@ overall = (failed == 0 and void == 0 and benign_rc == 0 and egress_contained
            and control_hits > 0)
 
 summary = {
-    "engine": "warden-interim", "attacks": len(scenarios),
+    "engine": engine, "attacks": len(scenarios),
     "passed": passed, "failed": failed, "void": void,
     "benign_rc": benign_rc, "benign_ok": benign_rc == 0,
     "control_hits": control_hits, "protected_hits": protected_hits,

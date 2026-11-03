@@ -32,8 +32,12 @@ const (
 	accTruncate   uint64 = 1 << 14 // ABI >= 3
 )
 
-// Landlock network access rights.
-const accNetConnectTCP uint64 = 1 << 0 // ABI >= 4
+// Landlock network access rights. These are NOT the same bit layout as the
+// filesystem rights: BIND_TCP is 1<<0 and CONNECT_TCP is 1<<1.
+const (
+	accNetBindTCP    uint64 = 1 << 0
+	accNetConnectTCP uint64 = 1 << 1 // ABI >= 4
+)
 
 const (
 	ruleTypePathBeneath uint32 = 1

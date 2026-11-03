@@ -1,15 +1,19 @@
-// Minimal Landlock exec probe.
+// Landlock exec-semantics probe.
 //
-// Reproduces the anomaly observed during the Vorynex Tier 0 milestone: a
-// Landlock rule granting EXECUTE on a subdirectory did not permit executing
-// files inside it on kernel 7.2.8 (local) or 7.0.0-azure (CI), while a rule on
-// /usr (or /) did. This is a standalone C program so the result is independent
-// of the Go implementation.
+// A small, standalone way to check what a host's kernel actually requires to
+// execute a binary under Landlock. It helped find that executing a dynamically
+// linked binary needs EXECUTE on the ELF interpreter's directory too
+// (e.g. /lib64), not just the binary's own directory.
 //
 // Build: clang -o landlock-probe landlock-probe.c
-// Usage: ./landlock-probe <dir-to-grant-rx> <binary-to-exec>
+// Usage: ./landlock-probe <binary> <dir-to-grant-rx> [more dirs...]
 //
-// Prints "RAN" (exec permitted) or "DENIED" (exec blocked).
+// Prints "RAN" (exec permitted) or "DENIED".
+//
+// Examples:
+//   ./landlock-probe /usr/bin/bash /usr/bin            -> DENIED  (interpreter
+//                                                         not executable)
+//   ./landlock-probe /usr/bin/bash /usr/bin /lib64     -> RAN
 
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -19,19 +23,24 @@
 #include <sys/syscall.h>
 #include <linux/landlock.h>
 
-int main(int argc, char **argv) {
-    if (argc != 3) {
-        fprintf(stderr, "usage: %s <dir> <binary>\n", argv[0]);
-        return 2;
-    }
-    const char *dir = argv[1];
-    const char *target = argv[2];
+static void grant(int ruleset_fd, const char *dir) {
+    struct landlock_path_beneath_attr pb = {0};
+    pb.allowed_access = LANDLOCK_ACCESS_FS_EXECUTE | LANDLOCK_ACCESS_FS_READ_FILE |
+                        LANDLOCK_ACCESS_FS_READ_DIR;
+    pb.parent_fd = open(dir, O_PATH | O_CLOEXEC);
+    if (pb.parent_fd < 0) { perror(dir); return; }
+    if (syscall(SYS_landlock_add_rule, ruleset_fd, LANDLOCK_RULE_PATH_BENEATH, &pb, 0))
+        perror("landlock_add_rule");
+    close(pb.parent_fd);
+}
 
-    int abi = syscall(SYS_landlock_create_ruleset, NULL, 0, LANDLOCK_CREATE_RULESET_VERSION);
-    if (abi < 0) {
-        fprintf(stderr, "landlock unavailable: abi=%d\n", abi);
+int main(int argc, char **argv) {
+    if (argc < 3) {
+        fprintf(stderr, "usage: %s <binary> <dir> [more dirs...]\n", argv[0]);
         return 2;
     }
+    int abi = syscall(SYS_landlock_create_ruleset, NULL, 0, LANDLOCK_CREATE_RULESET_VERSION);
+    if (abi < 1) { fprintf(stderr, "landlock unavailable (abi=%d)\n", abi); return 2; }
 
     struct landlock_ruleset_attr rs = {0};
     rs.handled_access_fs = LANDLOCK_ACCESS_FS_EXECUTE | LANDLOCK_ACCESS_FS_READ_FILE |
@@ -41,21 +50,13 @@ int main(int argc, char **argv) {
     int fd = syscall(SYS_landlock_create_ruleset, &rs, sizeof(rs), 0);
     if (fd < 0) { perror("landlock_create_ruleset"); return 2; }
 
-    struct landlock_path_beneath_attr pb = {0};
-    pb.allowed_access = LANDLOCK_ACCESS_FS_EXECUTE | LANDLOCK_ACCESS_FS_READ_FILE |
-                        LANDLOCK_ACCESS_FS_READ_DIR;
-    pb.parent_fd = open(dir, O_PATH | O_CLOEXEC);
-    if (pb.parent_fd < 0) { perror("open"); return 2; }
-    if (syscall(SYS_landlock_add_rule, fd, LANDLOCK_RULE_PATH_BENEATH, &pb, 0)) {
-        perror("landlock_add_rule");
-        return 2;
-    }
+    for (int i = 2; i < argc; i++) grant(fd, argv[i]);
 
     if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) { perror("prctl"); return 2; }
     if (syscall(SYS_landlock_restrict_self, fd, 0)) { perror("landlock_restrict_self"); return 2; }
     close(fd);
 
-    execl(target, target, "-c", "echo RAN", NULL);
-    printf("DENIED (abi=%d, rule dir=%s, target=%s)\n", abi, dir, target);
+    execl(argv[1], argv[1], "-c", "echo RAN", NULL);
+    printf("DENIED (abi=%d)\n", abi);
     return 1;
 }
