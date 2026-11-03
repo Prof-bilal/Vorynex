@@ -11,10 +11,13 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
 - [ ] Freeze the enforcement-tier design (Tier 0 Landlock+seccomp; Tier 1 eBPF-LSM)
 
 ## Milestone 1 — Extract/reuse the Warden runtime engine
-- [ ] Vendor/adapt `policy`, `proxy`, `audit`, and spawn-time arg builders into
-      `engine/` with MIT attribution
-- [ ] `go.work` tying `engine/` and `cmd/vorynex`
-- [ ] CI: lint + build + unit tests
+- [x] Vendor/adapt `policy`, `proxy`, `audit`, and `envfilter` into `engine/`
+      with MIT attribution ([`engine/NOTICE.md`](../engine/NOTICE.md))
+- [x] Single Go module (`github.com/vorynex/vorynex`) tying `engine/` and
+      `cmd/vorynex`
+- [x] CI: gofmt + vet + build + unit tests (`.github/workflows/ci.yml`)
+- [x] `cmd/vorynex` scaffold (`version`, `help`)
+- [ ] Vendor the spawn-time arg builders (`BuildBwrapArgs`, `BuildDockerArgs`)
 - [ ] `vorynex doctor` (platform capability report)
 
 ## Milestone 2 — Node/Docker workload discovery

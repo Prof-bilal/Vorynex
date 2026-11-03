@@ -165,25 +165,26 @@ primitives:
 
 ## Repository structure
 
-The smallest structure that avoids unnecessary complexity — one Go module for
-the engine, one service for the cloud, upstream Warden as a submodule.
+The smallest structure that avoids unnecessary complexity — **one Go module**
+for the engine and CLI, a separate service for the cloud, and upstream Warden as
+a submodule.
 
 ```text
 vorynex/
-├── README.md
-├── go.work                      # ties engine + cmd together
-├── upstream/warden/             # git submodule (Prof-bilal/Warden) — do not fork
-├── engine/                      # Go module: the enforcement + learning core
-│   ├── policy/                  # adapted from Warden (MIT attribution kept)
-│   ├── proxy/                   # egress (from Warden)
-│   ├── audit/                   # event schema + JSONL
+├── go.mod                       # single module: github.com/vorynex/vorynex
+├── upstream/warden/             # git submodule (Prof-bilal/Warden) — not imported directly
+├── engine/                      # the enforcement + learning core
+│   ├── policy/                  # vendored from Warden (MIT) — see engine/NOTICE.md
+│   ├── proxy/                   # vendored from Warden (egress)
+│   ├── audit/                   # vendored from Warden (event schema + JSONL)
+│   ├── envfilter/               # vendored from Warden
 │   ├── enforce/
-│   │   ├── spawntime/           # Landlock + seccomp shim; bwrap host path
+│   │   ├── spawntime/           # Landlock + seccomp shim; bwrap host path (new)
 │   │   └── live/                # eBPF-LSM + cgroups v2 + nftables (new)
-│   ├── profiler/                # safe learning engine
-│   ├── blastradius/             # graph model + calculator
-│   └── tracestore/              # attack-trace builder
-├── cmd/vorynex/                 # connect | observe | protect | status | trace | verify
+│   ├── profiler/                # safe learning engine (new)
+│   ├── blastradius/             # graph model + calculator (new)
+│   └── tracestore/              # attack-trace builder (new)
+├── cmd/vorynex/                 # connect | observe | protect | status | trace
 ├── cloud/                       # separate service (control plane)
 │   ├── api/                     # orgs/hosts/policies/events/CVE
 │   └── dashboard/               # web UI
@@ -194,11 +195,17 @@ vorynex/
 └── THIRD_PARTY_NOTICES.md
 ```
 
-**Why this and not a large monorepo:** Warden is a single ~34k-LOC Go module.
-The engine should stay one module; splitting it into `packages/agent`,
-`packages/runtime`, etc. before there is a second consumer would be premature
-complexity. `upstream/warden` as a submodule keeps Vorynex updatable rather than
-a permanent fork.
+**Why one module, not a `go.work` workspace:** the engine and the CLI are a
+single consumer of the same packages today. Splitting them into separate modules
+before a second consumer exists would be premature complexity.
+
+**Why Warden is vendored, not imported:** Warden's reusable code lives in
+`internal/` packages, which Go forbids importing from another module. Vorynex
+therefore vendors the specific packages it reuses (`policy`, `proxy`, `audit`,
+`envfilter`) into `engine/`, rewires their import paths, and records provenance
+in [`engine/NOTICE.md`](../engine/NOTICE.md). The `upstream/warden` submodule
+remains the source of truth for reviewing and pulling future changes; generally
+useful fixes go upstream.
 
 ## What we deliberately do not build
 
