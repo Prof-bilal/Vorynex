@@ -41,6 +41,16 @@ const (
 	createRulesetVer    uint32 = 1 // LANDLOCK_CREATE_RULESET_VERSION
 )
 
+// LandlockABI reports the kernel's Landlock ABI version, or 0 if Landlock is
+// unavailable. It is used by `vorynex doctor` and capability gating.
+func LandlockABI() int {
+	abi, err := landlockABI()
+	if err != nil {
+		return 0
+	}
+	return abi
+}
+
 // landlockABI returns the kernel's Landlock ABI version, or an error if
 // Landlock is unavailable.
 func landlockABI() (int, error) {

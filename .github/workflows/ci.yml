@@ -23,3 +23,36 @@ jobs:
         run: go build ./...
       - name: test
         run: go test ./...
+
+  # Tier 0 (Landlock) validation on a mainstream kernel. This could not be
+  # validated on the authoring host (a development 7.2.x kernel where Landlock
+  # exec behaved anomalously); CI runs on ubuntu-latest, so this job is where
+  # the anomaly is confirmed or refuted. It is informational
+  # (continue-on-error) until the exec scenarios are green, then flip it to
+  # required. See docs/SECURITY_TESTING.md.
+  lab:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: system deps
+        run: sudo apt-get update && sudo apt-get install -y bubblewrap strace
+      - name: capability report
+        run: go run ./cmd/vorynex doctor
+      - name: security lab (Tier 0)
+        run: cd tests/security-lab && LAB_ENGINE=vorynex ./run-lab.sh
+      - name: upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lab-evidence
+          path: tests/security-lab/evidence/
+          if-no-files-found: warn
