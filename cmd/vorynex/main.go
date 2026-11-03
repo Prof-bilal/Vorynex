@@ -28,7 +28,8 @@ Commands:
                 --details to classify writable paths, sensitive mounts, secrets
   doctor      Report platform + enforcement capabilities
   connect     Connect this host and discover the application (Milestone 2)
-  observe     Profile the workload without enforcing (Milestone 3)
+  observe     Profile a workload with no enforcement (records what Protect would block)
+                vorynex observe -- <command...>
   protect     Enable high-confidence enforcement (Milestone 4)
   status      Show current mode, effective policy, and recent events
   trace       Show a human-readable attack trace
@@ -56,6 +57,11 @@ func main() {
 		runDoctor()
 	case "discover":
 		if err := runDiscover(args[1:]); err != nil {
+			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
+			os.Exit(1)
+		}
+	case "observe":
+		if err := runObserve(args[1:]); err != nil {
 			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
 			os.Exit(1)
 		}

@@ -35,11 +35,15 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
   ports, and secret-named env vars. Runtime **egress dependencies** (which hosts
   the app actually talks to) are learned in Observe mode (Milestone 3).
 
-## Milestone 3 — Observe mode
-- [ ] Behavioral profiler with confidence scoring
-- [ ] Local event bus (JSONL)
-- [ ] Poisoning defenses implemented + tested
-- [ ] Zero enforcement; "would-have-blocked" report
+## Milestone 3 — Observe mode  ✅ core done
+- [x] Behavioral profiler with confidence scoring (`engine/profiler`)
+- [x] Local event bus (JSONL; the audit trace file)
+- [x] Poisoning defenses implemented + tested: never-promote classes (shell
+      exec, secret reads, cloud metadata, raw-IP egress) plus confidence
+      thresholds
+- [x] Zero enforcement; "would-have-blocked" report (`vorynex observe -- <cmd>`)
+- [ ] Multi-session aggregation + provenance scoring (needs the continuous
+      recorder / agent)
 
 ## Milestone 4 — Protect mode (Tier 0)  ✅ core done
 - [x] Policy `process` section (Vorynex extension) + `vorynex exec` command
