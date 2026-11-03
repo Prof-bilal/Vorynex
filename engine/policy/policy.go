@@ -28,6 +28,9 @@ import (
 // Fields correspond one-to-one with the schema documented in
 // ARCHITECTURE.md. All filesystem paths are absolute after ResolvePaths.
 type Policy struct {
+	// Version is the policy schema version. Zero means "unspecified" (older
+	// hand-written policies); generated policies set it to the current version.
+	Version int `yaml:"version,omitempty"`
 	// ReadOnlyPaths are supervisor-owned overlays, never policy input.
 	ReadOnlyPaths []string `yaml:"-"`
 	// Command is how to start the sandboxed server. Optional in the file

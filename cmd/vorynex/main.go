@@ -30,6 +30,8 @@ Commands:
   connect     Connect this host and discover the application (Milestone 2)
   observe     Profile a workload with no enforcement (records what Protect would block)
                 vorynex observe -- <command...>
+  policy      Generate a reviewable, signable policy from observed behavior
+                vorynex policy generate --from <events.jsonl> [--out <file>]
   protect     Enable high-confidence enforcement (Milestone 4)
   status      Show current mode, effective policy, and recent events
   trace       Show a human-readable attack trace
@@ -62,6 +64,11 @@ func main() {
 		}
 	case "observe":
 		if err := runObserve(args[1:]); err != nil {
+			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
+			os.Exit(1)
+		}
+	case "policy":
+		if err := runPolicy(args[1:]); err != nil {
 			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
 			os.Exit(1)
 		}

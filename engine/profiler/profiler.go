@@ -108,20 +108,23 @@ func Build(sessions [][]audit.Event, opts Options) Profile {
 
 	for i, events := range sessions {
 		for _, e := range events {
-			if !e.Allowed {
-				continue // an observed capability is something that succeeded
-			}
 			kind, target, ok := classify(e)
 			if !ok {
 				continue
 			}
 			k := key{kind, target}
+			safe, reason := danger(e)
+			// A failed *safe* access is not a capability, but a dangerous
+			// attempt is recorded regardless (it must never be promoted).
+			if safe && !e.Allowed {
+				continue
+			}
 			counts[k]++
 			if perSession[k] == nil {
 				perSession[k] = map[int]bool{}
 			}
 			perSession[k][i] = true
-			if safe, reason := danger(e); !safe {
+			if !safe {
 				never[k] = true
 				reasons[k] = reason
 			}

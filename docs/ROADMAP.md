@@ -63,9 +63,14 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
 - [ ] Kernel capability detection + honest degradation
 - [ ] Verify no-workload-kill by default; no-outage containment
 
-## Milestone 6 — Policy generation
-- [ ] Turn the baseline into a reviewable, signed policy
-- [ ] Review/approve UX; safe defaults; versioned schema
+## Milestone 6 — Policy generation  ✅ core done
+- [x] Turn the observed baseline into a reviewable policy (`engine/policygen`)
+- [x] Versioned schema (`version: 1` field on the policy)
+- [x] Signed policy: Ed25519 detached signature over the policy bytes
+- [x] Never-promote classes become explicit denies; safe defaults
+      (`protect_secrets: true`)
+- [x] `vorynex policy generate --from <events.jsonl> [--out <file>] [--sign-key <file>]`
+- [ ] Signing-key management / trust root (cloud-side, Milestone 7)
 
 ## Milestone 7 — Telemetry API
 - [ ] Outbound-only, resumable exporter; local-first buffering
