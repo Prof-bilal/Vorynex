@@ -169,6 +169,7 @@ function showLogin(msg) {
   $("#workloads").hidden = true;
   $("#detail").hidden = true;
   $("#events").hidden = true;
+  $("#blast").hidden = true;
   $("#signout").hidden = !state.token;
   if (msg) {
     const e = $("#login-error");
@@ -184,6 +185,7 @@ function hideLogin() {
   $(".stats").hidden = false;
   $("#workloads").hidden = false;
   $("#events").hidden = false;
+  $("#blast").hidden = false;
   $("#signout").hidden = !state.token || !!window.__VORYNEX_DEMO__;
 }
 
@@ -209,6 +211,7 @@ function render() {
 
   renderWorkloads();
   renderDetail();
+  renderBlast();
   renderEvents();
 }
 
@@ -459,6 +462,61 @@ function traceDetails(ev) {
       ]),
     ]),
   ]);
+}
+
+function renderBlast() {
+  const host = selectedHostObj();
+  const hostId = host ? host.host_id : null;
+  const reach = new Map();
+  const hold = new Map();
+
+  for (const e of state.events) {
+    if (hostId && e.host_id !== hostId) continue;
+    const ev = eventOf(e);
+    if (!ev || !ev.resource) continue;
+    if (isContained(e)) {
+      const b = behaviorOf(ev);
+      hold.set(b, (hold.get(b) || 0) + 1);
+      continue;
+    }
+    if (!ev.allowed) continue;
+    if (ev.type === "network") reach.set("connect " + ev.resource, "network");
+    else if (isWriteAction(ev.action)) reach.set("write " + ev.resource, "filesystem");
+  }
+
+  $("#blast-sub").textContent = host ? host.hostname || host.host_id : "all workloads · observed reach";
+  const body = $("#blast-body");
+  body.textContent = "";
+
+  const grid = el("div", { class: "blast" });
+
+  const reachCol = el("div", { class: "col reach" }, [el("h4", { text: "Reachable" })]);
+  const reachItems = [...reach.entries()].slice(0, 10);
+  if (reachItems.length === 0) {
+    reachCol.append(el("p", { class: "muted", text: "No successful access observed" }));
+  } else {
+    reachCol.append(
+      el("ul", {}, reachItems.map(([t, kind]) => el("li", {}, [el("span", { class: "ico", text: "!" }), t + "  ·  " + kind])))
+    );
+  }
+
+  const holdCol = el("div", { class: "col hold" }, [el("h4", { text: "Contained" })]);
+  const holdItems = [...hold.entries()];
+  if (holdItems.length === 0) {
+    holdCol.append(el("p", { class: "muted", text: "No containment events observed" }));
+  } else {
+    holdCol.append(
+      el("ul", {}, holdItems.map(([b, n]) => el("li", {}, [el("span", { class: "ico", text: "✓" }), b + " (" + n + ")"])))
+    );
+  }
+
+  grid.append(reachCol, holdCol);
+  body.append(grid);
+  body.append(
+    el("div", { class: "blast-foot" }, [
+      el("span", { class: "muted", text: "Observed reach from telemetry. The policy-based view arrives with policy upload." }),
+    ])
+  );
 }
 
 function renderEvents() {

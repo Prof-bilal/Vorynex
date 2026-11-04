@@ -37,6 +37,8 @@ Commands:
   status      Show current mode, effective policy, and recent events
   trace       Show a human-readable attack trace
                 vorynex trace [--from <events.jsonl>] [--workload <id>] [--all] [--json]
+  blast-radius  Show what a compromised workload could reach, from a policy
+                vorynex blast-radius --policy <file> [--workload <name>] [--json]
   version     Print the version
 
 See docs/ARCHITECTURE.md.`
@@ -81,6 +83,11 @@ func main() {
 		}
 	case "trace":
 		if err := runTrace(args[1:]); err != nil {
+			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
+			os.Exit(1)
+		}
+	case "blast-radius":
+		if err := runBlast(args[1:]); err != nil {
 			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
 			os.Exit(1)
 		}

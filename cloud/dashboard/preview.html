@@ -276,6 +276,20 @@ main { padding: 20px 28px 40px; max-width: 1180px; }
 .trace-next ul { margin: 4px 0 0; padding-left: 16px; color: var(--ink-2); font-size: 12.5px; }
 .trace-next li { margin: 2px 0; }
 
+/* ---- blast radius ---- */
+.blast { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); }
+.blast .col { background: var(--surface); padding: 14px 16px; }
+.blast h4 { margin: 0 0 8px; font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; }
+.blast .reach h4 { color: var(--warn); }
+.blast .hold h4 { color: var(--contained); }
+.blast ul { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+.blast li { display: flex; gap: 8px; padding: 3px 0; color: var(--ink-2); }
+.blast .ico { font-family: var(--mono); font-size: 11px; }
+.blast .reach .ico { color: var(--warn); }
+.blast .hold .ico { color: var(--contained); }
+.blast-foot { padding: 10px 16px; border-top: 1px solid var(--line); font-size: 12px; }
+@media (max-width: 700px) { .blast { grid-template-columns: 1fr; } }
+
 /* ---- states ---- */
 .skeleton-rows { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
 .skeleton { height: 34px; border-radius: 4px; background: linear-gradient(90deg, var(--sunken), #2a2620, var(--sunken)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
@@ -347,9 +361,9 @@ main { padding: 20px 28px 40px; max-width: 1180px; }
         <span class="nav-label">Events</span>
         <span class="nav-count" id="nav-events-count" aria-hidden="true">0</span>
       </a>
-      <span class="nav-item is-soon" aria-disabled="true">
-        <span class="nav-label">Blast radius</span><span class="soon">soon</span>
-      </span>
+      <a class="nav-item" href="#blast">
+        <span class="nav-label">Blast radius</span>
+      </a>
       <span class="nav-item is-soon" aria-disabled="true">
         <span class="nav-label">Policies</span><span class="soon">soon</span>
       </span>
@@ -450,11 +464,19 @@ main { padding: 20px 28px 40px; max-width: 1180px; }
           </div>
         </div>
       </section>
+
+      <section class="panel" id="blast" aria-labelledby="blast-title">
+        <div class="panel-head">
+          <h2 id="blast-title">Blast radius</h2>
+          <span class="hint" id="blast-sub"></span>
+        </div>
+        <div id="blast-body"></div>
+      </section>
     </main>
   </div>
 </div>
 
-<script>window.__VORYNEX_DEMO__ = {"hosts": [{"host_id": "host_4f2a9c\u2026", "hostname": "payments", "mode": "protect", "registered_at": "2026-11-01T11:01:50.013664+00:00"}, {"host_id": "host_8b1e77\u2026", "hostname": "billing", "mode": "observe", "registered_at": "2026-11-03T11:01:50.013664+00:00"}], "events": [{"host_id": "host_4f2a9c\u2026", "record": {"seq": 190, "event": {"timestamp": "2026-11-04T11:01:38.013664Z", "type": "file", "action": "execve", "resource": "/bin/bash", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 189, "event": {"timestamp": "2026-11-04T11:01:16.013664Z", "type": "network", "action": "connect", "resource": "169.254.169.254:80", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 188, "event": {"timestamp": "2026-11-04T11:00:59.013664Z", "type": "file", "action": "openat", "resource": "/app/.env", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 187, "event": {"timestamp": "2026-11-04T11:00:40.013664Z", "type": "network", "action": "connect", "resource": "api.stripe.com:443", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 186, "event": {"timestamp": "2026-11-04T11:00:14.013664Z", "type": "file", "action": "openat", "resource": "/app/server.js", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 185, "event": {"timestamp": "2026-11-04T10:59:50.013664Z", "type": "file", "action": "openat", "resource": "/app/.next/cache/chunk.mo", "allowed": false, "reason": "-1 ENOENT (No such file or directory)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 184, "event": {"timestamp": "2026-11-04T10:59:29.013664Z", "type": "file", "action": "openat", "resource": "/app/node_modules/next/package.json", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 88, "event": {"timestamp": "2026-11-04T11:01:28.013664Z", "type": "file", "action": "execve", "resource": "/usr/bin/curl", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 87, "event": {"timestamp": "2026-11-04T11:00:50.013664Z", "type": "network", "action": "connect", "resource": "api.resend.com:443", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 86, "event": {"timestamp": "2026-11-04T11:00:22.013664Z", "type": "file", "action": "openat", "resource": "/app/config.yaml", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 85, "event": {"timestamp": "2026-11-04T10:59:40.013664Z", "type": "file", "action": "openat", "resource": "/app/secrets/db.pem", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}]};</script>
+<script>window.__VORYNEX_DEMO__ = {"hosts": [{"host_id": "host_4f2a9c\u2026", "hostname": "payments", "mode": "protect", "registered_at": "2026-11-01T11:08:25.162654+00:00"}, {"host_id": "host_8b1e77\u2026", "hostname": "billing", "mode": "observe", "registered_at": "2026-11-03T11:08:25.162654+00:00"}], "events": [{"host_id": "host_4f2a9c\u2026", "record": {"seq": 190, "event": {"timestamp": "2026-11-04T11:08:13.162654Z", "type": "file", "action": "execve", "resource": "/bin/bash", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 189, "event": {"timestamp": "2026-11-04T11:07:51.162654Z", "type": "network", "action": "connect", "resource": "169.254.169.254:80", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 188, "event": {"timestamp": "2026-11-04T11:07:34.162654Z", "type": "file", "action": "openat", "resource": "/app/.env", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 187, "event": {"timestamp": "2026-11-04T11:07:15.162654Z", "type": "network", "action": "connect", "resource": "api.stripe.com:443", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 186, "event": {"timestamp": "2026-11-04T11:06:49.162654Z", "type": "file", "action": "openat", "resource": "/app/server.js", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 185, "event": {"timestamp": "2026-11-04T11:06:25.162654Z", "type": "file", "action": "openat", "resource": "/app/.next/cache/chunk.mo", "allowed": false, "reason": "-1 ENOENT (No such file or directory)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 184, "event": {"timestamp": "2026-11-04T11:06:04.162654Z", "type": "file", "action": "openat", "resource": "/app/node_modules/next/package.json", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 88, "event": {"timestamp": "2026-11-04T11:08:03.162654Z", "type": "file", "action": "execve", "resource": "/usr/bin/curl", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 87, "event": {"timestamp": "2026-11-04T11:07:25.162654Z", "type": "network", "action": "connect", "resource": "api.resend.com:443", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 86, "event": {"timestamp": "2026-11-04T11:06:57.162654Z", "type": "file", "action": "openat", "resource": "/app/config.yaml", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 85, "event": {"timestamp": "2026-11-04T11:06:15.162654Z", "type": "file", "action": "openat", "resource": "/app/secrets/db.pem", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}]};</script>
 <script>
 // Vorynex dashboard (M8).
 // Reads the control-plane API and renders hosts, protection mode, a workload
@@ -627,6 +649,7 @@ function showLogin(msg) {
   $("#workloads").hidden = true;
   $("#detail").hidden = true;
   $("#events").hidden = true;
+  $("#blast").hidden = true;
   $("#signout").hidden = !state.token;
   if (msg) {
     const e = $("#login-error");
@@ -642,6 +665,7 @@ function hideLogin() {
   $(".stats").hidden = false;
   $("#workloads").hidden = false;
   $("#events").hidden = false;
+  $("#blast").hidden = false;
   $("#signout").hidden = !state.token || !!window.__VORYNEX_DEMO__;
 }
 
@@ -667,6 +691,7 @@ function render() {
 
   renderWorkloads();
   renderDetail();
+  renderBlast();
   renderEvents();
 }
 
@@ -917,6 +942,61 @@ function traceDetails(ev) {
       ]),
     ]),
   ]);
+}
+
+function renderBlast() {
+  const host = selectedHostObj();
+  const hostId = host ? host.host_id : null;
+  const reach = new Map();
+  const hold = new Map();
+
+  for (const e of state.events) {
+    if (hostId && e.host_id !== hostId) continue;
+    const ev = eventOf(e);
+    if (!ev || !ev.resource) continue;
+    if (isContained(e)) {
+      const b = behaviorOf(ev);
+      hold.set(b, (hold.get(b) || 0) + 1);
+      continue;
+    }
+    if (!ev.allowed) continue;
+    if (ev.type === "network") reach.set("connect " + ev.resource, "network");
+    else if (isWriteAction(ev.action)) reach.set("write " + ev.resource, "filesystem");
+  }
+
+  $("#blast-sub").textContent = host ? host.hostname || host.host_id : "all workloads · observed reach";
+  const body = $("#blast-body");
+  body.textContent = "";
+
+  const grid = el("div", { class: "blast" });
+
+  const reachCol = el("div", { class: "col reach" }, [el("h4", { text: "Reachable" })]);
+  const reachItems = [...reach.entries()].slice(0, 10);
+  if (reachItems.length === 0) {
+    reachCol.append(el("p", { class: "muted", text: "No successful access observed" }));
+  } else {
+    reachCol.append(
+      el("ul", {}, reachItems.map(([t, kind]) => el("li", {}, [el("span", { class: "ico", text: "!" }), t + "  ·  " + kind])))
+    );
+  }
+
+  const holdCol = el("div", { class: "col hold" }, [el("h4", { text: "Contained" })]);
+  const holdItems = [...hold.entries()];
+  if (holdItems.length === 0) {
+    holdCol.append(el("p", { class: "muted", text: "No containment events observed" }));
+  } else {
+    holdCol.append(
+      el("ul", {}, holdItems.map(([b, n]) => el("li", {}, [el("span", { class: "ico", text: "✓" }), b + " (" + n + ")"])))
+    );
+  }
+
+  grid.append(reachCol, holdCol);
+  body.append(grid);
+  body.append(
+    el("div", { class: "blast-foot" }, [
+      el("span", { class: "muted", text: "Observed reach from telemetry. The policy-based view arrives with policy upload." }),
+    ])
+  );
 }
 
 function renderEvents() {

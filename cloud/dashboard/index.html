@@ -25,9 +25,9 @@
         <span class="nav-label">Events</span>
         <span class="nav-count" id="nav-events-count" aria-hidden="true">0</span>
       </a>
-      <span class="nav-item is-soon" aria-disabled="true">
-        <span class="nav-label">Blast radius</span><span class="soon">soon</span>
-      </span>
+      <a class="nav-item" href="#blast">
+        <span class="nav-label">Blast radius</span>
+      </a>
       <span class="nav-item is-soon" aria-disabled="true">
         <span class="nav-label">Policies</span><span class="soon">soon</span>
       </span>
@@ -127,6 +127,14 @@
             <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
           </div>
         </div>
+      </section>
+
+      <section class="panel" id="blast" aria-labelledby="blast-title">
+        <div class="panel-head">
+          <h2 id="blast-title">Blast radius</h2>
+          <span class="hint" id="blast-sub"></span>
+        </div>
+        <div id="blast-body"></div>
       </section>
     </main>
   </div>

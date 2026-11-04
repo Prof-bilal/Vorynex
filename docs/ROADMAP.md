@@ -119,9 +119,13 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
 - [ ] Join the ingress HTTP request and process lineage (needs pid/ppid and
       access logs; traces are currently marked `inferred`)
 
-## Milestone 10 — Blast Radius
-- [ ] Derive the reach graph from real policies/capabilities
-      ([BLAST_RADIUS.md](BLAST_RADIUS.md))
+## Milestone 10 — Blast Radius  ✅ core done
+- [x] `engine/blastradius`: derive reachable resources and contained classes
+      from an effective policy; no invented score
+- [x] CLI: `vorynex blast-radius --policy <file> [--workload <name>] [--mode <mode>] [--json]`
+- [x] Dashboard panel: observed reach vs containment from telemetry
+- [ ] Policy-based dashboard view (needs the agent to upload its policy)
+- [ ] Diff and graph views
 
 ## Milestone 11 — CVE correlation
 - [ ] Ingest CISA KEV, NVD, GHSA, OSV

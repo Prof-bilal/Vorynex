@@ -140,3 +140,18 @@ CONTAINED (8)
   inference).
 
 Related: [ATTACK_TRACE.md](ATTACK_TRACE.md), [ARCHITECTURE.md](ARCHITECTURE.md).
+
+## Implementation status (MVP)
+
+- `engine/blastradius` computes the report from an **effective policy**:
+  reachable = `network.allow`, `filesystem.read`/`write`, `process.exec.allow`;
+  contained = the standard danger classes (host filesystem, credentials, docker
+  socket, shell execution, cloud metadata, arbitrary egress, other containers).
+  Risky grants (e.g. `/` in read, a shell allowlisted, metadata allowlisted)
+  produce warnings. There is no numeric score.
+- `vorynex blast-radius --policy <file> [--workload <name>] [--mode <mode>]
+  [--json]` prints it.
+- The **dashboard** shows an *observed* reach panel derived from telemetry:
+  successful connects/writes vs denied classes. The policy-based dashboard view
+  waits on the agent uploading its effective policy (same dependency as the
+  Policies view).
