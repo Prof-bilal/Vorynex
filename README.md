@@ -92,6 +92,21 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ---
 
+## Try it locally
+
+```bash
+# 1. Start the control plane + dashboard
+go run ./cmd/vorynex-cloud --addr 127.0.0.1:8787 --token ""
+
+# 2. Observe a workload (no enforcement), then export its telemetry
+go run ./cmd/vorynex observe -- node server.js
+go run ./cmd/vorynex telemetry export --endpoint http://127.0.0.1:8787 --once
+
+# 3. Open http://127.0.0.1:8787 in a browser
+```
+
+The landing page is a single self-contained file: [`landing/index.html`](landing/index.html).
+
 ## Documentation
 
 | Doc | Purpose |

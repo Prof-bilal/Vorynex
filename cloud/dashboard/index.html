@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>Vorynex — Workloads</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<div class="app">
+  <aside class="rail" aria-label="Primary">
+    <div class="brand">
+      <span class="mark" aria-hidden="true"></span>
+      <span class="wordmark">Vorynex</span>
+    </div>
+
+    <nav class="nav" aria-label="Sections">
+      <a class="nav-item" href="#workloads" aria-current="page">
+        <span class="nav-label">Workloads</span>
+      </a>
+      <a class="nav-item" href="#events">
+        <span class="nav-label">Events</span>
+        <span class="nav-count" id="nav-events-count" aria-hidden="true">0</span>
+      </a>
+      <span class="nav-item is-soon" aria-disabled="true">
+        <span class="nav-label">Blast radius</span><span class="soon">soon</span>
+      </span>
+      <span class="nav-item is-soon" aria-disabled="true">
+        <span class="nav-label">Policies</span><span class="soon">soon</span>
+      </span>
+    </nav>
+
+    <div class="rail-foot">
+      <div class="rail-meta">
+        <span class="rail-k">Control plane</span>
+        <span class="rail-v" id="rail-host">connecting…</span>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-title">
+        <h1>Workloads</h1>
+        <p class="sub" id="subline">Loading enrolled hosts…</p>
+      </div>
+      <div class="topbar-actions">
+        <span class="status" id="cloud-status" role="status" aria-live="polite">
+          <span class="dot" aria-hidden="true"></span>
+          <span>Connecting</span>
+        </span>
+        <button class="btn" id="refresh" type="button">Refresh</button>
+      </div>
+    </header>
+
+    <main id="main" tabindex="-1">
+      <section class="stats" aria-label="Summary">
+        <div class="stat">
+          <span class="stat-k">Workloads</span>
+          <span class="stat-v" id="stat-workloads">—</span>
+        </div>
+        <div class="stat">
+          <span class="stat-k">Events</span>
+          <span class="stat-v" id="stat-events">—</span>
+        </div>
+        <div class="stat">
+          <span class="stat-k">Contained</span>
+          <span class="stat-v stat-v-ok" id="stat-contained">—</span>
+        </div>
+        <div class="stat">
+          <span class="stat-k">Mode</span>
+          <span class="stat-v" id="stat-mode">—</span>
+        </div>
+      </section>
+
+      <section class="panel" id="workloads" aria-labelledby="wl-title">
+        <div class="panel-head">
+          <h2 id="wl-title">Protected workloads</h2>
+          <span class="hint" id="wl-hint"></span>
+        </div>
+        <div id="wl-body" aria-live="polite">
+          <div class="skeleton-rows" aria-hidden="true">
+            <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="events" aria-labelledby="ev-title">
+        <div class="panel-head">
+          <h2 id="ev-title">Recent events</h2>
+          <div class="filters">
+            <label class="check">
+              <input type="checkbox" id="only-contained">
+              <span>Contained only</span>
+            </label>
+            <button class="btn btn-quiet" id="clear-filter" type="button" hidden>Clear host filter</button>
+          </div>
+        </div>
+        <div id="ev-body" aria-live="polite">
+          <div class="skeleton-rows" aria-hidden="true">
+            <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

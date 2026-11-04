@@ -93,9 +93,16 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
 - [ ] Real auth (per-host tokens, rotation), TLS, durable store (DB not JSONL)
 - [ ] Agent-enforced signing trust root (from Milestone 6)
 
-## Milestone 8 — Dashboard
-- [ ] login, host, application, runtime status, policies, event timeline,
-      protection-mode switch
+## Milestone 8 — Dashboard  ✅ core done
+- [x] Served by `vorynex-cloud` at `/` (static UI + `/v1` API)
+- [x] Workload list with **persisted** protection mode
+      (`GET /v1/hosts`, `POST /v1/hosts/{id}/mode`)
+- [x] Containment event timeline: contained vs allowed, host filter,
+      contained-only; `GET /v1/events`
+- [x] Loading, empty, and error states; keyboard focus; responsive layout
+- [x] Readable paper-and-ink UI (no SOC-console styling)
+- [ ] Token/auth UI, policies view, live updates
+- [ ] Blast Radius view (Milestone 10)
 
 ## Milestone 9 — Attack Trace
 - [ ] Render one event as a plain-English containment story
