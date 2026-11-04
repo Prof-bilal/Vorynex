@@ -168,6 +168,8 @@ main { padding: 20px 28px 40px; max-width: 1180px; }
 .check input { width: 15px; height: 15px; accent-color: var(--ink); }
 
 /* ---- table ---- */
+.wl-id { display: block; font-size: 11px; margin-top: 1px; }
+
 .table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .table th, .table td { text-align: left; padding: 10px 16px; }
 .table thead th {

@@ -98,17 +98,27 @@ function selectedHostObj() {
   return state.hosts.find((h) => h.host_id === state.selectedHost) || null;
 }
 
+function hostLabel(id) {
+  const h = state.hosts.find((x) => x.host_id === id);
+  return h ? (h.hostname || h.host_id) : id;
+}
+
 async function load() {
   setStatus("loading", "Loading");
   try {
-    const [hosts, events] = await Promise.all([
-      getJSON("/v1/hosts"),
-      getJSON("/v1/events?limit=300"),
-    ]);
-    state.hosts = hosts.hosts || [];
-    state.events = events.events || [];
+    if (window.__VORYNEX_DEMO__) {
+      state.hosts = window.__VORYNEX_DEMO__.hosts || [];
+      state.events = window.__VORYNEX_DEMO__.events || [];
+    } else {
+      const [hosts, events] = await Promise.all([
+        getJSON("/v1/hosts"),
+        getJSON("/v1/events?limit=300"),
+      ]);
+      state.hosts = hosts.hosts || [];
+      state.events = events.events || [];
+    }
     render();
-    setStatus("ok", "Connected");
+    setStatus("ok", window.__VORYNEX_DEMO__ ? "Preview" : "Connected");
   } catch (err) {
     renderError(err);
     setStatus("error", "Unreachable");
@@ -124,7 +134,11 @@ function render() {
   $("#stat-contained").textContent = String(contained);
   $("#stat-mode").textContent = host ? host.mode : state.hosts.length ? "mixed" : "—";
   $("#nav-events-count").textContent = String(state.events.length);
-  $("#rail-host").textContent = host ? host.host_id : state.hosts.length ? state.hosts.length + " hosts" : "no hosts";
+  $("#rail-host").textContent = host
+    ? host.hostname || host.host_id
+    : state.hosts.length
+      ? state.hosts.length + " hosts"
+      : "no hosts";
   $("#subline").textContent = state.hosts.length
     ? `${state.hosts.length} host${state.hosts.length === 1 ? "" : "s"} · ${state.events.length} events · Tier 0 spawn-time containment`
     : "No hosts enrolled yet";
@@ -168,13 +182,19 @@ function renderWorkloads() {
     const s = hostStats(h.host_id);
     const tr = el("tr", { "aria-selected": String(state.selectedHost === h.host_id) });
 
-    const nameBtn = el("button", {
-      class: "row-btn mono",
-      type: "button",
-      "aria-pressed": String(state.selectedHost === h.host_id),
-      text: h.host_id,
-      title: "Filter events to this workload",
-    });
+    const nameBtn = el(
+      "button",
+      {
+        class: "row-btn",
+        type: "button",
+        "aria-pressed": String(state.selectedHost === h.host_id),
+        title: "Filter events to this workload",
+      },
+      [
+        el("span", { class: "mono", text: h.hostname || h.host_id }),
+        h.hostname ? el("span", { class: "wl-id muted mono", text: h.host_id }) : null,
+      ]
+    );
     nameBtn.addEventListener("click", () => {
       state.selectedHost = state.selectedHost === h.host_id ? null : h.host_id;
       render();
@@ -222,6 +242,12 @@ function modeControl(host) {
 
 async function setMode(host, mode) {
   if (state.busy || host.mode === mode) return;
+  if (window.__VORYNEX_DEMO__) {
+    host.mode = mode;
+    setStatus("ok", "Mode saved (preview)");
+    render();
+    return;
+  }
   state.busy = true;
   render();
   try {
@@ -278,7 +304,7 @@ function renderEvents() {
       el("span", { class: "event-target", text: ev.resource || "(unknown)" }),
     ]);
     what.append(head);
-    what.append(el("div", { class: "event-host", text: e.host_id }));
+    what.append(el("div", { class: "event-host", text: hostLabel(e.host_id) }));
     if (contained && ev.reason) what.append(el("div", { class: "event-why", text: ev.reason }));
     li.append(what);
 

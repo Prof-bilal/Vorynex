@@ -106,6 +106,8 @@ go run ./cmd/vorynex telemetry export --endpoint http://127.0.0.1:8787 --once
 ```
 
 The landing page is a single self-contained file: [`landing/index.html`](landing/index.html).
+To see the dashboard without running the server, generate the sample preview:
+`python3 cloud/dashboard/mkpreview.py` then open `cloud/dashboard/preview.html`.
 
 ## Documentation
 

@@ -1,0 +1,753 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Vorynex — Workloads</title>
+<style>
+:root {
+  color-scheme: dark;
+  --paper: #121110;
+  --surface: #1a1815;
+  --sunken: #232019;
+  --ink: #ece6da;
+  --ink-2: #b8afa1;
+  --ink-3: #8b8275;
+  --line: #2c2822;
+  --line-strong: #3e3830;
+  --contained: #83bd9f;
+  --contained-bg: #14231c;
+  --denied: #ff8677;
+  --denied-bg: #2a1613;
+  --warn: #d8a75c;
+  --warn-bg: #2a2113;
+  --focus: #ece6da;
+  --radius: 6px;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.6;
+  letter-spacing: 0.004em;
+  -webkit-font-smoothing: antialiased;
+}
+
+.skip {
+  position: absolute;
+  left: -999px;
+  top: 8px;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  z-index: 20;
+}
+.skip:focus { left: 8px; }
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* ---- shell ---- */
+.app {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 20px 16px;
+  border-right: 1px solid var(--line);
+  background: var(--paper);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.brand { display: flex; align-items: center; gap: 9px; padding: 4px 8px; }
+.mark {
+  width: 14px; height: 14px;
+  background: var(--ink);
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 3px var(--paper), inset 0 0 0 5px var(--ink);
+}
+.wordmark { font-weight: 650; letter-spacing: -0.01em; font-size: 15px; }
+
+.nav { display: flex; flex-direction: column; gap: 2px; }
+.nav-item {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 8px 10px; border-radius: var(--radius);
+  color: var(--ink-2); text-decoration: none; font-size: 14px; font-weight: 500;
+}
+.nav-item:hover { background: var(--sunken); color: var(--ink); }
+.nav-item[aria-current="page"] { background: var(--surface); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
+.nav-item.is-soon { color: var(--ink-3); cursor: default; }
+.nav-item.is-soon:hover { background: transparent; }
+.nav-count {
+  font-family: var(--mono); font-size: 11px; color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.soon {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--ink-3); border: 1px solid var(--line-strong);
+  border-radius: 999px; padding: 1px 6px;
+}
+
+.rail-foot { margin-top: auto; border-top: 1px solid var(--line); padding-top: 14px; }
+.rail-meta { display: flex; flex-direction: column; gap: 2px; padding: 0 8px; }
+.rail-k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-3); }
+.rail-v { font-family: var(--mono); font-size: 12px; color: var(--ink-2); overflow-wrap: anywhere; }
+
+.main { min-width: 0; }
+
+.topbar {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; padding: 22px 28px 16px; border-bottom: 1px solid var(--line);
+}
+.topbar h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -0.02em; }
+.sub { margin: 4px 0 0; color: var(--ink-3); font-size: 13px; }
+.topbar-actions { display: flex; align-items: center; gap: 10px; }
+
+.status { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-2); }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); }
+.status[data-state="ok"] .dot { background: var(--contained); }
+.status[data-state="error"] .dot { background: var(--denied); }
+.status[data-state="loading"] .dot { background: var(--warn); }
+
+.btn {
+  font: inherit; font-size: 13px; font-weight: 550;
+  padding: 7px 12px; border-radius: var(--radius);
+  border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink);
+  cursor: pointer;
+}
+.btn:hover { background: var(--sunken); }
+.btn:active { transform: translateY(1px); }
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.btn-quiet { background: transparent; border-color: transparent; color: var(--ink-2); }
+.btn-quiet:hover { background: var(--sunken); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+main { padding: 20px 28px 40px; max-width: 1180px; }
+
+/* ---- stats ---- */
+.stats {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px; background: var(--line); border: 1px solid var(--line);
+  border-radius: var(--radius); overflow: hidden; margin-bottom: 20px;
+}
+.stat { background: var(--surface); padding: 12px 14px; display: flex; flex-direction: column; gap: 3px; }
+.stat-k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-3); }
+.stat-v { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.stat-v-ok { color: var(--contained); }
+
+/* ---- panels ---- */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+.panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 13px 16px; border-bottom: 1px solid var(--line);
+}
+.panel-head h2 { margin: 0; font-size: 14px; font-weight: 650; letter-spacing: -0.01em; }
+.hint { color: var(--ink-3); font-size: 12.5px; }
+.filters { display: flex; align-items: center; gap: 14px; }
+
+.check { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-2); cursor: pointer; }
+.check input { width: 15px; height: 15px; accent-color: var(--ink); }
+
+/* ---- table ---- */
+.wl-id { display: block; font-size: 11px; margin-top: 1px; }
+
+.table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.table th, .table td { text-align: left; padding: 10px 16px; }
+.table thead th {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--ink-3); font-weight: 600; border-bottom: 1px solid var(--line);
+  background: var(--paper);
+}
+.table tbody tr { border-bottom: 1px solid var(--line); }
+.table tbody tr:last-child { border-bottom: 0; }
+.table tbody tr:hover { background: var(--sunken); }
+.table tbody tr[aria-selected="true"] { background: var(--sunken); box-shadow: inset 3px 0 0 var(--ink); }
+.table .row-btn {
+  font: inherit; background: none; border: 0; padding: 0; color: inherit;
+  text-align: left; cursor: pointer; width: 100%;
+}
+.mono { font-family: var(--mono); font-size: 12.5px; }
+.muted { color: var(--ink-3); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* ---- mode control ---- */
+.modes { display: inline-flex; border: 1px solid var(--line-strong); border-radius: var(--radius); overflow: hidden; }
+.modes button {
+  font: inherit; font-size: 12px; font-weight: 550; padding: 4px 9px;
+  border: 0; background: var(--surface); color: var(--ink-2); cursor: pointer;
+  border-right: 1px solid var(--line);
+}
+.modes button:last-child { border-right: 0; }
+.modes button:hover { background: var(--sunken); }
+.modes button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.modes button:disabled { cursor: progress; opacity: 0.6; }
+
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; font-weight: 600; padding: 2px 7px; border-radius: 999px;
+  border: 1px solid transparent;
+}
+.badge-contained { color: var(--contained); background: var(--contained-bg); border-color: #31503f; }
+.badge-allowed { color: var(--ink-2); background: var(--sunken); border-color: var(--line); }
+.badge-gap { color: var(--warn); background: var(--warn-bg); border-color: #4a3c22; }
+
+/* ---- event timeline ---- */
+.events { list-style: none; margin: 0; padding: 0; }
+.event {
+  display: grid; grid-template-columns: 92px minmax(0, 1fr) auto;
+  gap: 14px; align-items: baseline;
+  padding: 10px 16px; border-bottom: 1px solid var(--line);
+  font-size: 13.5px;
+}
+.event:last-child { border-bottom: 0; }
+.event.is-contained { background: var(--denied-bg); }
+.event-time { font-family: var(--mono); font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.event-what { min-width: 0; }
+.event-act { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); }
+.event-target { font-family: var(--mono); font-size: 12.5px; color: var(--ink); overflow-wrap: anywhere; }
+.event-host { font-size: 12px; color: var(--ink-3); }
+.event-why { font-size: 12px; color: var(--denied); margin-top: 2px; }
+
+/* ---- states ---- */
+.skeleton-rows { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+.skeleton { height: 34px; border-radius: 4px; background: linear-gradient(90deg, var(--sunken), #2a2620, var(--sunken)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
+
+.empty, .error {
+  padding: 28px 16px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start;
+}
+.empty h3, .error h3 { margin: 0; font-size: 14px; }
+.empty p, .error p { margin: 0; color: var(--ink-3); font-size: 13px; max-width: 62ch; }
+.error h3 { color: var(--denied); }
+.code {
+  font-family: var(--mono); font-size: 12.5px; background: var(--paper);
+  border: 1px solid var(--line); border-radius: 4px; padding: 6px 9px; color: var(--ink-2);
+}
+
+/* ---- responsive ---- */
+@media (max-width: 900px) {
+  .app { grid-template-columns: 1fr; }
+  .rail {
+    position: static; height: auto; flex-direction: row; align-items: center;
+    gap: 16px; padding: 12px 16px; border-right: 0; border-bottom: 1px solid var(--line);
+    overflow-x: auto;
+  }
+  .nav { flex-direction: row; gap: 4px; }
+  .nav-item { white-space: nowrap; }
+  .nav-item.is-soon { display: none; }
+  .rail-foot { margin: 0 0 0 auto; border: 0; padding: 0; }
+  .rail-meta { display: none; }
+  .topbar { padding: 16px; }
+  main { padding: 16px; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .table thead { display: none; }
+  .table tbody tr { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 10px 16px; }
+  .table tbody td { padding: 0; }
+  .table tbody td[data-label]::before {
+    content: attr(data-label) " ";
+    display: inline; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-3);
+  }
+  .event { grid-template-columns: 1fr; gap: 2px; }
+}
+
+@media (max-width: 520px) {
+  .stats { grid-template-columns: 1fr 1fr; }
+  .topbar { flex-direction: column; gap: 10px; }
+}
+
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<div class="app">
+  <aside class="rail" aria-label="Primary">
+    <div class="brand">
+      <span class="mark" aria-hidden="true"></span>
+      <span class="wordmark">Vorynex</span>
+    </div>
+
+    <nav class="nav" aria-label="Sections">
+      <a class="nav-item" href="#workloads" aria-current="page">
+        <span class="nav-label">Workloads</span>
+      </a>
+      <a class="nav-item" href="#events">
+        <span class="nav-label">Events</span>
+        <span class="nav-count" id="nav-events-count" aria-hidden="true">0</span>
+      </a>
+      <span class="nav-item is-soon" aria-disabled="true">
+        <span class="nav-label">Blast radius</span><span class="soon">soon</span>
+      </span>
+      <span class="nav-item is-soon" aria-disabled="true">
+        <span class="nav-label">Policies</span><span class="soon">soon</span>
+      </span>
+    </nav>
+
+    <div class="rail-foot">
+      <div class="rail-meta">
+        <span class="rail-k">Control plane</span>
+        <span class="rail-v" id="rail-host">connecting…</span>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-title">
+        <h1>Workloads</h1>
+        <p class="sub" id="subline">Loading enrolled hosts…</p>
+      </div>
+      <div class="topbar-actions">
+        <span class="status" id="cloud-status" role="status" aria-live="polite">
+          <span class="dot" aria-hidden="true"></span>
+          <span>Connecting</span>
+        </span>
+        <button class="btn" id="refresh" type="button">Refresh</button>
+      </div>
+    </header>
+
+    <main id="main" tabindex="-1">
+      <section class="stats" aria-label="Summary">
+        <div class="stat">
+          <span class="stat-k">Workloads</span>
+          <span class="stat-v" id="stat-workloads">—</span>
+        </div>
+        <div class="stat">
+          <span class="stat-k">Events</span>
+          <span class="stat-v" id="stat-events">—</span>
+        </div>
+        <div class="stat">
+          <span class="stat-k">Contained</span>
+          <span class="stat-v stat-v-ok" id="stat-contained">—</span>
+        </div>
+        <div class="stat">
+          <span class="stat-k">Mode</span>
+          <span class="stat-v" id="stat-mode">—</span>
+        </div>
+      </section>
+
+      <section class="panel" id="workloads" aria-labelledby="wl-title">
+        <div class="panel-head">
+          <h2 id="wl-title">Protected workloads</h2>
+          <span class="hint" id="wl-hint"></span>
+        </div>
+        <div id="wl-body" aria-live="polite">
+          <div class="skeleton-rows" aria-hidden="true">
+            <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="events" aria-labelledby="ev-title">
+        <div class="panel-head">
+          <h2 id="ev-title">Recent events</h2>
+          <div class="filters">
+            <label class="check">
+              <input type="checkbox" id="only-contained">
+              <span>Contained only</span>
+            </label>
+            <button class="btn btn-quiet" id="clear-filter" type="button" hidden>Clear host filter</button>
+          </div>
+        </div>
+        <div id="ev-body" aria-live="polite">
+          <div class="skeleton-rows" aria-hidden="true">
+            <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script>window.__VORYNEX_DEMO__ = {"hosts": [{"host_id": "host_4f2a9c\u2026", "hostname": "payments", "mode": "protect", "registered_at": "2026-11-01T10:37:47.818668+00:00"}, {"host_id": "host_8b1e77\u2026", "hostname": "billing", "mode": "observe", "registered_at": "2026-11-03T10:37:47.818668+00:00"}], "events": [{"host_id": "host_4f2a9c\u2026", "record": {"seq": 190, "event": {"timestamp": "2026-11-04T10:37:35.818668Z", "type": "file", "action": "execve", "resource": "/bin/bash", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 189, "event": {"timestamp": "2026-11-04T10:37:13.818668Z", "type": "network", "action": "connect", "resource": "169.254.169.254:80", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 188, "event": {"timestamp": "2026-11-04T10:36:56.818668Z", "type": "file", "action": "openat", "resource": "/app/.env", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 187, "event": {"timestamp": "2026-11-04T10:36:37.818668Z", "type": "network", "action": "connect", "resource": "api.stripe.com:443", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 186, "event": {"timestamp": "2026-11-04T10:36:11.818668Z", "type": "file", "action": "openat", "resource": "/app/server.js", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 185, "event": {"timestamp": "2026-11-04T10:35:47.818668Z", "type": "file", "action": "openat", "resource": "/app/.next/cache/chunk.mo", "allowed": false, "reason": "-1 ENOENT (No such file or directory)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 184, "event": {"timestamp": "2026-11-04T10:35:26.818668Z", "type": "file", "action": "openat", "resource": "/app/node_modules/next/package.json", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 88, "event": {"timestamp": "2026-11-04T10:37:25.818668Z", "type": "file", "action": "execve", "resource": "/usr/bin/curl", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 87, "event": {"timestamp": "2026-11-04T10:36:47.818668Z", "type": "network", "action": "connect", "resource": "api.resend.com:443", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 86, "event": {"timestamp": "2026-11-04T10:36:19.818668Z", "type": "file", "action": "openat", "resource": "/app/config.yaml", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 85, "event": {"timestamp": "2026-11-04T10:35:37.818668Z", "type": "file", "action": "openat", "resource": "/app/secrets/db.pem", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}]};</script>
+<script>
+// Vorynex dashboard (M8).
+// Reads the control-plane API and renders hosts, protection mode, and a
+// containment event timeline. All user/agent data is inserted via textContent.
+
+const $ = (sel) => document.querySelector(sel);
+
+const params = new URLSearchParams(location.search);
+const tokenParam = params.get("token");
+if (tokenParam) sessionStorage.setItem("vorynex-token", tokenParam);
+
+const state = {
+  token: sessionStorage.getItem("vorynex-token") || "",
+  hosts: [],
+  events: [],
+  selectedHost: null,
+  onlyContained: false,
+  busy: false,
+};
+
+const MODES = ["observe", "protect", "lockdown"];
+
+function authHeaders() {
+  return state.token ? { Authorization: "Bearer " + state.token } : {};
+}
+
+async function getJSON(path) {
+  const res = await fetch(path, { headers: authHeaders() });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  return res.json();
+}
+
+function el(tag, props = {}, children = []) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "class") node.className = v;
+    else if (k === "text") node.textContent = v;
+    else if (k === "dataset") Object.assign(node.dataset, v);
+    else node.setAttribute(k, v);
+  }
+  for (const c of [].concat(children)) {
+    if (c == null) continue;
+    node.append(c.nodeType ? c : document.createTextNode(String(c)));
+  }
+  return node;
+}
+
+function setStatus(kind, label) {
+  const s = $("#cloud-status");
+  s.dataset.state = kind;
+  s.querySelector("span:last-child").textContent = label;
+}
+
+function fmtTime(ts) {
+  if (!ts) return "—";
+  const d = new Date(ts);
+  if (isNaN(d)) return "—";
+  return d.toLocaleTimeString([], { hour12: false });
+}
+
+function ago(ts) {
+  const d = new Date(ts);
+  if (isNaN(d)) return "—";
+  const s = Math.max(0, (Date.now() - d.getTime()) / 1000);
+  if (s < 60) return "just now";
+  if (s < 3600) return Math.floor(s / 60) + "m ago";
+  if (s < 86400) return Math.floor(s / 3600) + "h ago";
+  return Math.floor(s / 86400) + "d ago";
+}
+
+// An event is "contained" when the kernel refused the access. strace records
+// any failed syscall as allowed:false, including harmless ENOENT misses, so we
+// only count permission denials (EACCES/EPERM) as containment.
+function isContained(e) {
+  const ev = eventOf(e);
+  if (!ev || ev.allowed !== false) return false;
+  const reason = String(ev.reason || "");
+  return reason.includes("EACCES") || reason.includes("EPERM");
+}
+
+function eventOf(e) {
+  return (e && e.record && e.record.event) || {};
+}
+
+function hostStats(hostId) {
+  let events = 0, contained = 0, last = null, gaps = 0;
+  for (const e of state.events) {
+    if (hostId && e.host_id !== hostId) continue;
+    if (e.record && e.record.gap) { gaps++; continue; }
+    events++;
+    if (isContained(e)) contained++;
+    const ts = eventOf(e).timestamp;
+    if (ts && (!last || ts > last)) last = ts;
+  }
+  return { events, contained, last, gaps };
+}
+
+function selectedHostObj() {
+  return state.hosts.find((h) => h.host_id === state.selectedHost) || null;
+}
+
+function hostLabel(id) {
+  const h = state.hosts.find((x) => x.host_id === id);
+  return h ? (h.hostname || h.host_id) : id;
+}
+
+async function load() {
+  setStatus("loading", "Loading");
+  try {
+    if (window.__VORYNEX_DEMO__) {
+      state.hosts = window.__VORYNEX_DEMO__.hosts || [];
+      state.events = window.__VORYNEX_DEMO__.events || [];
+    } else {
+      const [hosts, events] = await Promise.all([
+        getJSON("/v1/hosts"),
+        getJSON("/v1/events?limit=300"),
+      ]);
+      state.hosts = hosts.hosts || [];
+      state.events = events.events || [];
+    }
+    render();
+    setStatus("ok", window.__VORYNEX_DEMO__ ? "Preview" : "Connected");
+  } catch (err) {
+    renderError(err);
+    setStatus("error", "Unreachable");
+  }
+}
+
+function render() {
+  const contained = state.events.filter(isContained).length;
+  const host = selectedHostObj();
+
+  $("#stat-workloads").textContent = String(state.hosts.length);
+  $("#stat-events").textContent = String(state.events.filter((e) => !(e.record && e.record.gap)).length);
+  $("#stat-contained").textContent = String(contained);
+  $("#stat-mode").textContent = host ? host.mode : state.hosts.length ? "mixed" : "—";
+  $("#nav-events-count").textContent = String(state.events.length);
+  $("#rail-host").textContent = host
+    ? host.hostname || host.host_id
+    : state.hosts.length
+      ? state.hosts.length + " hosts"
+      : "no hosts";
+  $("#subline").textContent = state.hosts.length
+    ? `${state.hosts.length} host${state.hosts.length === 1 ? "" : "s"} · ${state.events.length} events · Tier 0 spawn-time containment`
+    : "No hosts enrolled yet";
+  $("#wl-hint").textContent = host ? `Filtered to ${host.host_id}` : "";
+  $("#clear-filter").hidden = !host;
+
+  renderWorkloads();
+  renderEvents();
+}
+
+function renderWorkloads() {
+  const body = $("#wl-body");
+  body.textContent = "";
+
+  if (state.hosts.length === 0) {
+    const cmd = el("code", { class: "code", text: "vorynex telemetry export --endpoint http://127.0.0.1:8787 --once" });
+    body.append(
+      el("div", { class: "empty" }, [
+        el("h3", { text: "No workloads enrolled yet" }),
+        el("p", { text: "Enroll this host and export telemetry. The dashboard reads from the local control plane." }),
+        cmd,
+      ])
+    );
+    return;
+  }
+
+  const table = el("table", { class: "table" });
+  const thead = el("thead", {}, [
+    el("tr", {}, [
+      el("th", { scope: "col", text: "Workload" }),
+      el("th", { scope: "col", text: "Mode" }),
+      el("th", { scope: "col", text: "Events" }),
+      el("th", { scope: "col", text: "Contained" }),
+      el("th", { scope: "col", text: "Last event" }),
+      el("th", { scope: "col", text: "Status" }),
+    ]),
+  ]);
+  const tbody = el("tbody");
+
+  for (const h of state.hosts) {
+    const s = hostStats(h.host_id);
+    const tr = el("tr", { "aria-selected": String(state.selectedHost === h.host_id) });
+
+    const nameBtn = el(
+      "button",
+      {
+        class: "row-btn",
+        type: "button",
+        "aria-pressed": String(state.selectedHost === h.host_id),
+        title: "Filter events to this workload",
+      },
+      [
+        el("span", { class: "mono", text: h.hostname || h.host_id }),
+        h.hostname ? el("span", { class: "wl-id muted mono", text: h.host_id }) : null,
+      ]
+    );
+    nameBtn.addEventListener("click", () => {
+      state.selectedHost = state.selectedHost === h.host_id ? null : h.host_id;
+      render();
+    });
+
+    tr.append(el("td", { "data-label": "Workload" }, [nameBtn]));
+    tr.append(el("td", { "data-label": "Mode" }, [modeControl(h)]));
+    tr.append(el("td", { class: "num", "data-label": "Events", text: String(s.events) }));
+    tr.append(
+      el("td", { class: "num", "data-label": "Contained" }, [
+        s.contained > 0 ? el("span", { class: "badge badge-contained", text: String(s.contained) }) : el("span", { class: "muted", text: "0" }),
+      ])
+    );
+    tr.append(el("td", { class: "muted", "data-label": "Last event", text: s.last ? ago(s.last) : "—" }));
+    tr.append(el("td", { "data-label": "Status" }, [statusBadge(s)]));
+    tbody.append(tr);
+  }
+
+  table.append(thead, tbody);
+  body.append(table);
+}
+
+function statusBadge(s) {
+  if (s.events === 0) return el("span", { class: "badge badge-allowed", text: "no data" });
+  if (s.last && Date.now() - new Date(s.last).getTime() < 10 * 60 * 1000) {
+    return el("span", { class: "badge badge-contained", text: "reporting" });
+  }
+  return el("span", { class: "badge badge-gap", text: "stale" });
+}
+
+function modeControl(host) {
+  const group = el("div", { class: "modes", role: "group", "aria-label": "Protection mode for " + host.host_id });
+  for (const m of MODES) {
+    const b = el("button", {
+      type: "button",
+      "aria-pressed": String(host.mode === m),
+      text: m,
+    });
+    if (state.busy) b.disabled = true;
+    b.addEventListener("click", () => setMode(host, m));
+    group.append(b);
+  }
+  return group;
+}
+
+async function setMode(host, mode) {
+  if (state.busy || host.mode === mode) return;
+  if (window.__VORYNEX_DEMO__) {
+    host.mode = mode;
+    setStatus("ok", "Mode saved (preview)");
+    render();
+    return;
+  }
+  state.busy = true;
+  render();
+  try {
+    const res = await fetch("/v1/hosts/" + encodeURIComponent(host.host_id) + "/mode", {
+      method: "POST",
+      headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+      body: JSON.stringify({ mode }),
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    host.mode = mode;
+    setStatus("ok", "Mode saved");
+  } catch (err) {
+    setStatus("error", "Mode not saved");
+  } finally {
+    state.busy = false;
+    render();
+  }
+}
+
+function renderEvents() {
+  const body = $("#ev-body");
+  body.textContent = "";
+
+  let rows = state.events.filter((e) => !(e.record && e.record.gap));
+  if (state.selectedHost) rows = rows.filter((e) => e.host_id === state.selectedHost);
+  if (state.onlyContained) rows = rows.filter(isContained);
+  rows = rows.slice(0, 60);
+
+  if (rows.length === 0) {
+    body.append(
+      el("div", { class: "empty" }, [
+        el("h3", { text: state.onlyContained ? "No contained events" : "No events yet" }),
+        el("p", {
+          text: state.onlyContained
+            ? "Nothing has been denied in the current view. Run a workload under Vorynex and export telemetry."
+            : "Enrolled hosts have not exported events yet. Run observe or protect, then export.",
+        }),
+      ])
+    );
+    return;
+  }
+
+  const list = el("ul", { class: "events" });
+  for (const e of rows) {
+    const ev = eventOf(e);
+    const contained = isContained(e);
+    const li = el("li", { class: "event" + (contained ? " is-contained" : "") });
+
+    li.append(el("span", { class: "event-time", text: fmtTime(ev.timestamp) }));
+
+    const what = el("div", { class: "event-what" });
+    const head = el("div", {}, [
+      el("span", { class: "event-act", text: (ev.action || "access") + " " }),
+      el("span", { class: "event-target", text: ev.resource || "(unknown)" }),
+    ]);
+    what.append(head);
+    what.append(el("div", { class: "event-host", text: hostLabel(e.host_id) }));
+    if (contained && ev.reason) what.append(el("div", { class: "event-why", text: ev.reason }));
+    li.append(what);
+
+    li.append(
+      el("span", {}, [
+        el("span", {
+          class: "badge " + (contained ? "badge-contained" : "badge-allowed"),
+          text: contained ? "contained" : "allowed",
+        }),
+      ])
+    );
+
+    list.append(li);
+  }
+  body.append(list);
+}
+
+function renderError(err) {
+  const body = $("#wl-body");
+  body.textContent = "";
+  const unauthorized = String(err && err.message) === "HTTP 401";
+  body.append(
+    el("div", { class: "error" }, [
+      el("h3", { text: unauthorized ? "Authentication required" : "Cannot reach the control plane" }),
+      el("p", {
+        text: unauthorized
+          ? "This control plane requires a token. Open the dashboard with ?token=<your-token> or run the server with --token \"\" for local use."
+          : "The dashboard could not load hosts or events. Check that vorynex-cloud is running and refresh.",
+      }),
+      el("button", { class: "btn", type: "button", text: "Retry" , id: "retry" }),
+    ])
+  );
+  const retry = body.querySelector("#retry");
+  if (retry) retry.addEventListener("click", load);
+
+  $("#ev-body").textContent = "";
+  $("#ev-body").append(el("div", { class: "empty" }, [el("p", { text: "Event timeline unavailable while disconnected." })]));
+}
+
+// ---- wiring ----
+$("#refresh").addEventListener("click", load);
+$("#only-contained").addEventListener("change", (e) => {
+  state.onlyContained = e.target.checked;
+  renderEvents();
+});
+$("#clear-filter").addEventListener("click", () => {
+  state.selectedHost = null;
+  render();
+});
+
+load();
+
+</script>
+</body>
+</html>
