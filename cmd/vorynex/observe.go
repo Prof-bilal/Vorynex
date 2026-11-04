@@ -67,6 +67,7 @@ func runObserve(args []string) error {
 	printObserveReport(path, len(events), prof, blocked)
 
 	if code != 0 {
+		fmt.Fprintf(os.Stderr, "\nnote: the workload exited with code %d; telemetry was still recorded.\n", code)
 		os.Exit(code)
 	}
 	return nil

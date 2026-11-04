@@ -94,16 +94,32 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Try it locally
 
+The control plane serves the API **and** the dashboard, so start it first and
+leave it running (one terminal):
+
 ```bash
-# 1. Start the control plane + dashboard
 go run ./cmd/vorynex-cloud --addr 127.0.0.1:8787 --token ""
-
-# 2. Observe a workload (no enforcement), then export its telemetry
-go run ./cmd/vorynex observe -- node server.js
-go run ./cmd/vorynex telemetry export --endpoint http://127.0.0.1:8787 --once
-
-# 3. Open http://127.0.0.1:8787 in a browser
 ```
+
+In a second terminal, record a workload with no enforcement, then export:
+
+```bash
+# a real, short-lived command (it exits on its own)
+go run ./cmd/vorynex observe -- node -e 'require("fs").readFileSync("/etc/hostname")'
+
+# push the recorded events to the control plane
+go run ./cmd/vorynex telemetry export --endpoint http://127.0.0.1:8787 --once
+```
+
+Then open <http://127.0.0.1:8787> in a browser.
+
+To observe your own long-running app instead, point it at your entrypoint and
+press Ctrl-C when you have exercised it:
+
+```bash
+go run ./cmd/vorynex observe -- node dist/server.js
+```
+
 
 The landing page is a single self-contained file: [`landing/index.html`](landing/index.html).
 To see the dashboard without running the server, generate the sample preview:
