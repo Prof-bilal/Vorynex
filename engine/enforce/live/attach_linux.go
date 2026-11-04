@@ -15,12 +15,18 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+var programs = []string{"deny_cap", "deny_exec", "deny_open", "deny_connect"}
+
 type session struct {
-	coll   *ebpf.Collection
-	lnk    link.Link
-	armed  *ebpf.Map
-	target *ebpf.Map
-	denied *ebpf.Map
+	coll        *ebpf.Collection
+	links       []link.Link
+	armed       *ebpf.Map
+	target      *ebpf.Map
+	deniedCap   *ebpf.Map
+	deniedInode *ebpf.Map
+	deniedFile  *ebpf.Map
+	blockedIP   *ebpf.Map
+	blockedPort *ebpf.Map
 }
 
 func attachObject(path string) (Session, error) {
@@ -33,42 +39,66 @@ func attachObject(path string) (Session, error) {
 		return nil, fmt.Errorf("create BPF collection (need CAP_BPF/CAP_PERFMON): %w", err)
 	}
 
-	prog := coll.Programs["deny_cap"]
-	if prog == nil {
-		coll.Close()
-		return nil, fmt.Errorf("program deny_cap not found in %s", path)
+	s := &session{
+		coll:        coll,
+		armed:       coll.Maps["armed"],
+		target:      coll.Maps["target_cgroup"],
+		deniedCap:   coll.Maps["denied_cap"],
+		deniedInode: coll.Maps["denied_inode"],
+		deniedFile:  coll.Maps["denied_file_inode"],
+		blockedIP:   coll.Maps["blocked_ip"],
+		blockedPort: coll.Maps["blocked_port"],
 	}
-	lnk, err := link.AttachLSM(link.LSMOptions{Program: prog})
-	if err != nil {
+	if s.armed == nil || s.target == nil || s.deniedCap == nil || s.deniedInode == nil ||
+		s.deniedFile == nil || s.blockedIP == nil || s.blockedPort == nil {
 		coll.Close()
-		return nil, fmt.Errorf("attach LSM program: %w", err)
+		return nil, fmt.Errorf("required maps missing from %s", path)
 	}
 
-	s := &session{
-		coll:   coll,
-		lnk:    lnk,
-		armed:  coll.Maps["armed"],
-		target: coll.Maps["target_cgroup"],
-		denied: coll.Maps["denied_cap"],
-	}
-	if s.armed == nil || s.target == nil || s.denied == nil {
-		s.Close()
-		return nil, fmt.Errorf("required maps missing from %s", path)
+	for _, name := range programs {
+		prog := coll.Programs[name]
+		if prog == nil {
+			s.Close()
+			return nil, fmt.Errorf("program %s not found in %s", name, path)
+		}
+		l, err := link.AttachLSM(link.LSMOptions{Program: prog})
+		if err != nil {
+			s.Close()
+			return nil, fmt.Errorf("attach %s: %w", name, err)
+		}
+		s.links = append(s.links, l)
 	}
 	return s, nil
 }
 
-// Arm targets cgroupID and denies capability for it. The program is inert for
-// every other cgroup.
-func (s *session) Arm(cgroupID uint64, capability int) error {
+func (s *session) Arm(cgroupID uint64) error {
 	if err := s.target.Put(uint32(0), cgroupID); err != nil {
 		return fmt.Errorf("set target cgroup: %w", err)
 	}
-	if err := s.denied.Put(uint32(0), uint32(capability)); err != nil {
-		return fmt.Errorf("set denied capability: %w", err)
-	}
 	if err := s.armed.Put(uint32(0), uint64(1)); err != nil {
 		return fmt.Errorf("arm: %w", err)
+	}
+	return nil
+}
+
+func (s *session) DenyCapability(capability int) error {
+	return s.deniedCap.Put(uint32(0), uint32(capability))
+}
+
+func (s *session) DenyExecInode(inode uint64) error {
+	return s.deniedInode.Put(uint32(0), inode)
+}
+
+func (s *session) DenyFileInode(inode uint64) error {
+	return s.deniedFile.Put(uint32(0), inode)
+}
+
+func (s *session) BlockConnect(ip uint32, port uint16) error {
+	if err := s.blockedIP.Put(uint32(0), ip); err != nil {
+		return fmt.Errorf("set blocked ip: %w", err)
+	}
+	if err := s.blockedPort.Put(uint32(0), uint32(port)); err != nil {
+		return fmt.Errorf("set blocked port: %w", err)
 	}
 	return nil
 }
@@ -78,13 +108,22 @@ func (s *session) Disarm() error {
 }
 
 func (s *session) Close() error {
-	if s.lnk != nil {
-		s.lnk.Close()
+	for _, l := range s.links {
+		l.Close()
 	}
 	if s.coll != nil {
 		s.coll.Close()
 	}
 	return nil
+}
+
+// InodeOf returns the inode number of path.
+func InodeOf(path string) (uint64, error) {
+	var st unix.Stat_t
+	if err := unix.Stat(path, &st); err != nil {
+		return 0, fmt.Errorf("stat %s: %w", path, err)
+	}
+	return st.Ino, nil
 }
 
 // CgroupID returns the id that bpf_get_current_cgroup_id() reports for a cgroup

@@ -12,3 +12,8 @@ func attachObject(string) (Session, error) {
 func CgroupID(string) (uint64, error) {
 	return 0, fmt.Errorf("tier 1 is Linux-only")
 }
+
+// InodeOf is Linux-only.
+func InodeOf(string) (uint64, error) {
+	return 0, fmt.Errorf("tier 1 is Linux-only")
+}

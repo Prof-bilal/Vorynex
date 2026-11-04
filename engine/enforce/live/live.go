@@ -149,11 +149,20 @@ func (e *UnavailableError) Error() string {
 
 // Session is an attached, disarmed Tier 1 enforcement session.
 type Session interface {
-	// Arm targets one cgroup and denies one capability for it.
-	Arm(cgroupID uint64, capability int) error
-	// Disarm makes the attached program inert again.
+	// Arm targets one cgroup. Hooks stay inert for every other cgroup.
+	Arm(cgroupID uint64) error
+	// DenyCapability denies one capability for the armed cgroup (0 disables).
+	DenyCapability(capability int) error
+	// DenyExecInode denies exec of one inode for the armed cgroup (0 disables).
+	DenyExecInode(inode uint64) error
+	// DenyFileInode denies opening one inode for the armed cgroup (0 disables).
+	DenyFileInode(inode uint64) error
+	// BlockConnect denies connecting to an IPv4 address (host-endian bytes of
+	// the 4 address octets) and, when port is non-zero, that port only.
+	BlockConnect(ip uint32, port uint16) error
+	// Disarm makes the attached programs inert again.
 	Disarm() error
-	// Close detaches the program and releases resources.
+	// Close detaches the programs and releases resources.
 	Close() error
 }
 

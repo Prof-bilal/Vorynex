@@ -9,15 +9,26 @@ make bpf          # clang -target bpf ... -> live.bpf.o
 
 ## What it enforces today
 
-One hook: `SEC("lsm/capable")`. It denies a chosen capability (default
-`CAP_SYS_ADMIN`, 21) for one cgroup. That validates the whole live path —
-load, attach, per-cgroup arm, deny, disarm, detach.
+Four hooks, all scoped to one armed cgroup:
 
-Path-based hooks (`bprm_check_security` for exec, `file_open` for files,
-`socket_connect` for egress) are **not** in this object yet. They need kernel
-struct access via CO-RE, which requires `vmlinux.h` from `bpftool` (not
-installed here). The enforcement plan in `vorynex live plan` already describes
-those hooks so the mapping is reviewable.
+| Hook | Denies | Map |
+|---|---|---|
+| `lsm/capable` | one capability (e.g. `CAP_SYS_ADMIN`) | `denied_cap` |
+| `lsm/bprm_check_security` | exec of one inode (file-granular: allow node, deny bash) | `denied_inode` |
+| `lsm/file_open` | opening one inode (e.g. a secret file) | `denied_file_inode` |
+| `lsm/socket_connect` | connect to one IPv4 address, optionally one port | `blocked_ip` / `blocked_port` |
+
+The exec/file hooks use CO-RE (minimal struct definitions with
+`preserve_access_index`), so no `vmlinux.h`/`bpftool` is required. Egress is
+enforced at `socket_connect`, so no separate nftables layer is needed for the
+MVP.
+
+The privileged test validates all four: denied inside the armed cgroup,
+unaffected outside it, restored after clearing the deny and after disarm, and a
+running workload is never killed.
+
+Remaining: translating a full policy into these maps (path prefixes, hostname
+allowlists via a DNS-resolved IP map) and rollback orchestration.
 
 ## Safety model
 

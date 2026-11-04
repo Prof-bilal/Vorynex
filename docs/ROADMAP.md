@@ -66,20 +66,25 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
 - [ ] File-granular exec control via Tier 1 (Landlock exec control is
       directory-scoped)
 
-## Milestone 5 — Tier 1 live enforcement  ◐ partial (capability hook validated)
+## Milestone 5 — Tier 1 live enforcement  ✅ core done
 - [x] Capability detection: kernel, LSM list, BTF, CAP_BPF/CAP_PERFMON, with
       honest reasons (`engine/enforce/live`); `vorynex live status`
-- [x] Deterministic enforcement plan from a policy — `bprm_check_security`,
-      `file_open`, `socket_connect`, `capable` (`vorynex live plan --policy`)
-- [x] **BPF-LSM loader** (`cilium/ebpf`): load + attach **disarmed**, arm one
-      cgroup, deny a capability, disarm, detach (`engine/enforce/live/bpf`)
-- [x] Privileged integration test: `unshare(CLONE_NEWNS)` denied inside the
-      armed cgroup, unaffected outside it, restored after disarm
-- [x] `vorynex live attach --object <path> --cgroup <path> [--cap N] [--seconds N]`
-- [ ] Path-based hooks — `bprm_check_security` (exec), `file_open` (paths),
-      `socket_connect` (egress); need CO-RE via `vmlinux.h` (bpftool)
-- [ ] cgroups v2 anchoring and nftables egress
-- [ ] No-workload-kill verification and rollback orchestration
+- [x] Deterministic enforcement plan from a policy (`vorynex live plan`)
+- [x] BPF-LSM loader (`cilium/ebpf`): **four hooks** — `capable`,
+      `bprm_check_security`, `file_open`, `socket_connect` — attached
+      **disarmed** and scoped to one cgroup
+- [x] File-granular exec denial (allow node, deny bash) by inode — validated
+- [x] Path/file denial by inode, and IPv4[:port] egress denial — validated
+- [x] Privileged integration test: denied inside the armed cgroup, unaffected
+      outside it, restored after clearing the deny and after disarm; a running
+      workload is **not killed**
+- [x] `vorynex live attach --object <path> --cgroup <path> [--pid <pid>]
+      [--deny-exec <path>] [--deny-open <path>] [--block-connect <ip[:port]>]
+      [--cap N] [--seconds N]` — cgroup anchoring by PID included
+- [ ] Full policy → hook translation (path prefixes, hostname allowlists via a
+      DNS-resolved IP map); rollback orchestration via the control plane
+- Note: egress is enforced at `socket_connect`; a separate nftables layer is
+  not required for the MVP.
 
 ## Milestone 6 — Policy generation  ✅ core done
 - [x] Turn the observed baseline into a reviewable policy (`engine/policygen`)
