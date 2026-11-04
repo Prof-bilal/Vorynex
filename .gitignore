@@ -35,3 +35,6 @@ evidence/
 
 # Agent tooling config (local only)
 .commandcode/
+
+# Local control-plane state
+/vorynex-cloud/
