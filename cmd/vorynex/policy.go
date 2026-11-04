@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/vorynex/vorynex/engine/audit"
@@ -18,16 +19,18 @@ import (
 // runPolicy implements `vorynex policy generate`.
 func runPolicy(args []string) error {
 	if len(args) == 0 || args[0] != "generate" {
-		return fmt.Errorf("usage: vorynex policy generate --from <events.jsonl> [--out <file>] [--sign-key <file>]")
+		return fmt.Errorf("usage: vorynex policy generate --from <events.jsonl> [--from <events2.jsonl>...] [--min-sessions N] [--out <file>] [--sign-key <file>]")
 	}
-	var from, out, signKey string
+	var froms []string
+	var out, signKey string
+	minSessions := 0
 	rest := args[1:]
 	for i := 0; i < len(rest); i++ {
 		switch rest[i] {
 		case "--from":
 			if i+1 < len(rest) {
 				i++
-				from = rest[i]
+				froms = append(froms, rest[i])
 			}
 		case "--out":
 			if i+1 < len(rest) {
@@ -39,30 +42,47 @@ func runPolicy(args []string) error {
 				i++
 				signKey = rest[i]
 			}
+		case "--min-sessions":
+			if i+1 < len(rest) {
+				i++
+				if n, err := strconv.Atoi(rest[i]); err == nil {
+					minSessions = n
+				}
+			}
 		default:
 			return fmt.Errorf("unknown flag %q", rest[i])
 		}
 	}
-	if from == "" {
+	if len(froms) == 0 {
 		return fmt.Errorf("--from <events.jsonl> is required")
 	}
 
-	f, err := os.Open(from)
-	if err != nil {
-		return err
+	// Each --from is one independent session. A capability must appear in
+	// MinSessions of them to be promotable; provenance is the session count.
+	sessions := make([][]audit.Event, 0, len(froms))
+	for _, from := range froms {
+		events, _, err := readTraceEvents(from)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", from, err)
+		}
+		sessions = append(sessions, events)
 	}
-	events, err := audit.ReadEvents(f)
-	f.Close()
-	if err != nil {
-		return err
+	if minSessions <= 0 {
+		if len(sessions) > 1 {
+			minSessions = 2
+		} else {
+			minSessions = 1
+		}
 	}
 
-	prof := profiler.Build([][]audit.Event{events}, profiler.Options{MinSessions: 1, MinCount: 2})
+	prof := profiler.Build(sessions, profiler.Options{MinSessions: minSessions, MinCount: 1})
 	res := policygen.Generate(prof, policygen.DefaultOptions())
 	data, err := res.Policy.Marshal()
 	if err != nil {
 		return err
 	}
+
+	fmt.Fprintf(os.Stderr, "aggregated %d session(s), min-sessions %d\n", len(sessions), minSessions)
 
 	if out == "" {
 		fmt.Print(string(data))

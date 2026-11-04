@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/vorynex/vorynex/engine/cve"
 )
@@ -13,10 +15,11 @@ import (
 // runCve implements `vorynex cve scan`.
 func runCve(args []string) error {
 	if len(args) == 0 || args[0] != "scan" {
-		return fmt.Errorf("usage: vorynex cve scan --lockfile <package-lock.json> --osv <file> [--kev <file>] [--workload <name>] [--json]")
+		return fmt.Errorf("usage: vorynex cve scan --lockfile <package-lock.json> (--osv <file> | --live) [--kev <file>|--kev-live] [--workload <name>] [--json]")
 	}
 	var lockPath, osvPath, kevPath, workload string
-	var jsonOut bool
+	var jsonOut, live, kevLive bool
+	timeout := 20 * time.Second
 	for i := 1; i < len(args); i++ {
 		switch args[i] {
 		case "--lockfile":
@@ -41,12 +44,23 @@ func runCve(args []string) error {
 			}
 		case "--json":
 			jsonOut = true
+		case "--live":
+			live = true
+		case "--kev-live":
+			kevLive = true
+		case "--timeout":
+			if i+1 < len(args) {
+				i++
+				if d, err := time.ParseDuration(args[i]); err == nil {
+					timeout = d
+				}
+			}
 		default:
 			return fmt.Errorf("unknown flag %q", args[i])
 		}
 	}
-	if lockPath == "" || osvPath == "" {
-		return fmt.Errorf("--lockfile and --osv are required")
+	if lockPath == "" {
+		return fmt.Errorf("--lockfile is required")
 	}
 	if workload == "" {
 		workload = "workload"
@@ -57,18 +71,42 @@ func runCve(args []string) error {
 		return err
 	}
 
-	af, err := os.Open(osvPath)
-	if err != nil {
-		return err
-	}
-	advisories, err := cve.ParseOSV(af)
-	af.Close()
-	if err != nil {
-		return err
+	ctx := context.Background()
+	client := cve.NewClient()
+	client.HTTP.Timeout = timeout
+
+	var advisories []cve.Advisory
+	if live {
+		for _, p := range pkgs {
+			advs, err := client.QueryOSV(ctx, p)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "osv %s: %v\n", p.Name, err)
+				continue
+			}
+			advisories = append(advisories, advs...)
+		}
+	} else {
+		if osvPath == "" {
+			return fmt.Errorf("--osv <file> or --live is required")
+		}
+		af, err := os.Open(osvPath)
+		if err != nil {
+			return err
+		}
+		advisories, err = cve.ParseOSV(af)
+		af.Close()
+		if err != nil {
+			return err
+		}
 	}
 
 	var kevSet map[string]bool
-	if kevPath != "" {
+	if kevLive {
+		kevSet, err = client.FetchKEV(ctx)
+		if err != nil {
+			return err
+		}
+	} else if kevPath != "" {
 		kf, err := os.Open(kevPath)
 		if err != nil {
 			return err
@@ -93,7 +131,11 @@ func runCve(args []string) error {
 			exploited++
 		}
 	}
-	fmt.Printf("CVE scan: %s (%d packages, %d advisories)\n\n", workload, len(pkgs), len(advisories))
+	source := "file"
+	if live {
+		source = "OSV live"
+	}
+	fmt.Printf("CVE scan: %s (%d packages, %d advisories, %s)\n\n", workload, len(pkgs), len(advisories), source)
 	if len(matches) == 0 {
 		fmt.Println("No affected packages found.")
 		return nil

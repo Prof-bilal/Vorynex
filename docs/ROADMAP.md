@@ -52,8 +52,8 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
       exec, secret reads, cloud metadata, raw-IP egress) plus confidence
       thresholds
 - [x] Zero enforcement; "would-have-blocked" report (`vorynex observe -- <cmd>`)
-- [ ] Multi-session aggregation + provenance scoring (needs the continuous
-      recorder / agent)
+- [x] Multi-session aggregation: `policy generate --from a --from b
+      --min-sessions N`; provenance is the session count
 
 ## Milestone 4 — Protect mode (Tier 0)  ✅ core done
 - [x] Policy `process` section (Vorynex extension) + `vorynex exec` command
@@ -61,10 +61,12 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
 - [x] Shell/exec containment (lab `shell_spawn`/`bash_spawn` PASS) — fixed the
       ELF-interpreter EXECUTE bug and the `NET_CONNECT_TCP` bit
 - [x] Lab 7/7 PASS under `LAB_ENGINE=vorynex`; CI enforces it
-- [ ] High-confidence-only blocking wired to the profiler (Milestone 3)
-- [ ] False-positive measurement on real traffic
-- [ ] File-granular exec control via Tier 1 (Landlock exec control is
-      directory-scoped)
+- [x] High-confidence blocking wired to the profiler:
+      `vorynex protect --from <events> -- <command>` (generates the policy and
+      launches under Tier 0)
+- [x] File-granular exec control via Tier 1 (M5 `bprm_check_security` inode hook)
+- [ ] False-positive measurement on real production traffic (needs a real
+      workload; the lab's benign operations pass)
 
 ## Milestone 5 — Tier 1 live enforcement  ✅ core done
 - [x] Capability detection: kernel, LSM list, BTF, CAP_BPF/CAP_PERFMON, with
@@ -137,8 +139,9 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
       from an effective policy; no invented score
 - [x] CLI: `vorynex blast-radius --policy <file> [--workload <name>] [--mode <mode>] [--json]`
 - [x] Dashboard panel: observed reach vs containment from telemetry
+- [x] Diff view: `blast-radius --policy <a> --compare <b>`
 - [ ] Policy-based dashboard view (needs the agent to upload its policy)
-- [ ] Diff and graph views
+- [ ] Graph view
 
 ## Milestone 11 — CVE correlation  ✅ core done
 - [x] Parse OSV advisories (which include GitHub Security Advisories) and the
@@ -148,7 +151,9 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
       id or alias marks an advisory known-exploited
 - [x] CLI: `vorynex cve scan --lockfile <package-lock.json> --osv <file>
       [--kev <file>] [--workload <name>] [--json]`
-- [ ] Live feed fetching (OSV/NVD/KEV APIs) and NVD CVSS enrichment
+- [x] Live OSV querying and live CISA KEV download (`cve scan --live
+      --kev-live`)
+- [ ] NVD CVSS enrichment
 - [ ] Dashboard CVE view (needs workload SBOM upload)
 
 ## Milestone 12 — Emergency Shield  ✅ core done

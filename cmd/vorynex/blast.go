@@ -9,9 +9,10 @@ import (
 )
 
 // runBlast prints the blast radius for a policy: what a compromised workload
-// could reach, and which danger classes are contained.
+// could reach, and which danger classes are contained. With --compare it prints
+// the difference between the two policies.
 func runBlast(args []string) error {
-	var policyPath, workload, mode string
+	var policyPath, workload, mode, compare string
 	var jsonOut bool
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
@@ -19,6 +20,11 @@ func runBlast(args []string) error {
 			if i+1 < len(args) {
 				i++
 				policyPath = args[i]
+			}
+		case "--compare":
+			if i+1 < len(args) {
+				i++
+				compare = args[i]
 			}
 		case "--workload":
 			if i+1 < len(args) {
@@ -45,6 +51,38 @@ func runBlast(args []string) error {
 		return err
 	}
 	report := blastradius.FromPolicy(p, workload, mode)
+
+	if compare != "" {
+		p2, err := policy.Load(compare)
+		if err != nil {
+			return err
+		}
+		report2 := blastradius.FromPolicy(p2, workload, mode)
+		diff := blastradius.Diff(report, report2)
+		if jsonOut {
+			b, _ := json.MarshalIndent(diff, "", "  ")
+			fmt.Println(string(b))
+			return nil
+		}
+		fmt.Printf("Blast radius diff: %s\n  before: %s\n  after:  %s\n\n", report.Workload, policyPath, compare)
+		fmt.Printf("REACHABLE added (%d)\n", len(diff.ReachableAdded))
+		for _, r := range diff.ReachableAdded {
+			fmt.Printf("  + %-8s %s\n", r.Kind, r.Target)
+		}
+		fmt.Printf("REACHABLE removed (%d)\n", len(diff.ReachableRemoved))
+		for _, r := range diff.ReachableRemoved {
+			fmt.Printf("  - %-8s %s\n", r.Kind, r.Target)
+		}
+		fmt.Printf("CONTAINED added (%d)\n", len(diff.ContainedAdded))
+		for _, c := range diff.ContainedAdded {
+			fmt.Printf("  + %s\n", c.Class)
+		}
+		fmt.Printf("CONTAINED removed (%d)\n", len(diff.ContainedRemoved))
+		for _, c := range diff.ContainedRemoved {
+			fmt.Printf("  - %s\n", c.Class)
+		}
+		return nil
+	}
 
 	if jsonOut {
 		b, _ := json.MarshalIndent(report, "", "  ")

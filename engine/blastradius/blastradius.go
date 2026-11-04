@@ -138,6 +138,60 @@ func FromPolicy(p policy.Policy, workload, mode string) Report {
 	return r
 }
 
+// DiffReport is the change in blast radius between two policies.
+type DiffReport struct {
+	ReachableAdded   []Resource  `json:"reachable_added,omitempty"`
+	ReachableRemoved []Resource  `json:"reachable_removed,omitempty"`
+	ContainedAdded   []Contained `json:"contained_added,omitempty"`
+	ContainedRemoved []Contained `json:"contained_removed,omitempty"`
+}
+
+// Diff compares two reports. "Added" means present in after, absent in before.
+func Diff(before, after Report) DiffReport {
+	var d DiffReport
+	br := map[string]Resource{}
+	for _, r := range before.Reachable {
+		br[r.Kind+"|"+r.Target] = r
+	}
+	ar := map[string]Resource{}
+	for _, r := range after.Reachable {
+		ar[r.Kind+"|"+r.Target] = r
+	}
+	for k, r := range ar {
+		if _, ok := br[k]; !ok {
+			d.ReachableAdded = append(d.ReachableAdded, r)
+		}
+	}
+	for k, r := range br {
+		if _, ok := ar[k]; !ok {
+			d.ReachableRemoved = append(d.ReachableRemoved, r)
+		}
+	}
+	bc := map[string]Contained{}
+	for _, c := range before.Contained {
+		bc[c.Class] = c
+	}
+	ac := map[string]Contained{}
+	for _, c := range after.Contained {
+		ac[c.Class] = c
+	}
+	for k, c := range ac {
+		if _, ok := bc[k]; !ok {
+			d.ContainedAdded = append(d.ContainedAdded, c)
+		}
+	}
+	for k, c := range bc {
+		if _, ok := ac[k]; !ok {
+			d.ContainedRemoved = append(d.ContainedRemoved, c)
+		}
+	}
+	sort.Slice(d.ReachableAdded, func(i, j int) bool { return d.ReachableAdded[i].Target < d.ReachableAdded[j].Target })
+	sort.Slice(d.ReachableRemoved, func(i, j int) bool { return d.ReachableRemoved[i].Target < d.ReachableRemoved[j].Target })
+	sort.Slice(d.ContainedAdded, func(i, j int) bool { return d.ContainedAdded[i].Class < d.ContainedAdded[j].Class })
+	sort.Slice(d.ContainedRemoved, func(i, j int) bool { return d.ContainedRemoved[i].Class < d.ContainedRemoved[j].Class })
+	return d
+}
+
 func denyMatches(p policy.Policy, substr string) bool {
 	return anyContains(p.Filesystem.Deny, substr)
 }
