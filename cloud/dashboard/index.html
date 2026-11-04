@@ -38,6 +38,7 @@
         <span class="rail-k">Control plane</span>
         <span class="rail-v" id="rail-host">connecting…</span>
       </div>
+      <button class="btn btn-quiet signout" id="signout" type="button" hidden>Sign out</button>
     </div>
   </aside>
 
@@ -52,11 +53,25 @@
           <span class="dot" aria-hidden="true"></span>
           <span>Connecting</span>
         </span>
+        <button class="btn btn-quiet" id="live" type="button" aria-pressed="true" title="Auto-refresh every 15 seconds">Live</button>
         <button class="btn" id="refresh" type="button">Refresh</button>
       </div>
     </header>
 
     <main id="main" tabindex="-1">
+      <section class="panel" id="login" hidden aria-labelledby="login-title">
+        <div class="panel-head"><h2 id="login-title">Connect to the control plane</h2></div>
+        <form id="login-form" class="login-body">
+          <label class="field">
+            <span class="field-k">Access token</span>
+            <input id="token-input" type="password" autocomplete="off" placeholder="Paste the control-plane token" />
+          </label>
+          <p class="hint">Servers started with <code>--token ""</code> need no token.</p>
+          <p class="error-msg" id="login-error" role="alert" hidden></p>
+          <button class="btn" type="submit">Connect</button>
+        </form>
+      </section>
+
       <section class="stats" aria-label="Summary">
         <div class="stat">
           <span class="stat-k">Workloads</span>
@@ -86,6 +101,14 @@
             <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
           </div>
         </div>
+      </section>
+
+      <section class="panel" id="detail" hidden aria-labelledby="detail-title">
+        <div class="panel-head">
+          <h2 id="detail-title">Workload</h2>
+          <span class="hint" id="detail-sub"></span>
+        </div>
+        <div id="detail-body"></div>
       </section>
 
       <section class="panel" id="events" aria-labelledby="ev-title">

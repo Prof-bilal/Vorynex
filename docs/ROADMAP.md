@@ -100,8 +100,12 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
 - [x] Containment event timeline: contained vs allowed, host filter,
       contained-only; `GET /v1/events`
 - [x] Loading, empty, and error states; keyboard focus; responsive layout
-- [x] Readable paper-and-ink UI (no SOC-console styling)
-- [ ] Token/auth UI, policies view, live updates
+- [x] Readable dark UI (no SOC-console styling)
+- [x] Token/auth: sign-in form on 401, sign-out, `?token=` support
+- [x] Live updates: 15s poll, pauses when the tab is hidden or the operator is
+      interacting; manual refresh
+- [x] Workload detail panel: mode, counts, last event, recent containment
+- [ ] Policies view (needs the agent to upload its effective policy)
 - [ ] Blast Radius view (Milestone 10)
 
 ## Milestone 9 — Attack Trace

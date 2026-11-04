@@ -235,6 +235,28 @@ main { padding: 20px 28px 40px; max-width: 1180px; }
 .event-host { font-size: 12px; color: var(--ink-3); }
 .event-why { font-size: 12px; color: var(--denied); margin-top: 2px; }
 
+/* ---- login ---- */
+.login-body { padding: 16px; display: flex; flex-direction: column; gap: 10px; max-width: 460px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field-k { font-size: 12px; color: var(--ink-3); }
+.field input {
+  font: inherit; font-size: 14px; padding: 9px 11px; border-radius: var(--radius);
+  border: 1px solid var(--line-strong); background: var(--paper); color: var(--ink);
+}
+.error-msg { margin: 0; color: var(--denied); font-size: 13px; }
+.signout { margin-top: 10px; width: 100%; }
+
+/* ---- workload detail ---- */
+.detail-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); }
+.detail-stat { background: var(--surface); padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; }
+.detail-k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-3); }
+.detail-v { font-size: 15px; font-weight: 600; }
+.detail-ok { color: var(--contained); }
+.detail-recent { grid-column: 1 / -1; background: var(--surface); padding: 14px 16px; border-top: 1px solid var(--line); }
+.detail-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.detail-list li { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px; }
+.detail-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--line); }
+
 /* ---- states ---- */
 .skeleton-rows { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
 .skeleton { height: 34px; border-radius: 4px; background: linear-gradient(90deg, var(--sunken), #2a2620, var(--sunken)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
@@ -276,9 +298,11 @@ main { padding: 20px 28px 40px; max-width: 1180px; }
     display: inline; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-3);
   }
   .event { grid-template-columns: 1fr; gap: 2px; }
+  .detail-grid { grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 520px) {
+  .detail-grid { grid-template-columns: 1fr; }
   .stats { grid-template-columns: 1fr 1fr; }
   .topbar { flex-direction: column; gap: 10px; }
 }
@@ -316,6 +340,7 @@ main { padding: 20px 28px 40px; max-width: 1180px; }
         <span class="rail-k">Control plane</span>
         <span class="rail-v" id="rail-host">connecting…</span>
       </div>
+      <button class="btn btn-quiet signout" id="signout" type="button" hidden>Sign out</button>
     </div>
   </aside>
 
@@ -330,11 +355,25 @@ main { padding: 20px 28px 40px; max-width: 1180px; }
           <span class="dot" aria-hidden="true"></span>
           <span>Connecting</span>
         </span>
+        <button class="btn btn-quiet" id="live" type="button" aria-pressed="true" title="Auto-refresh every 15 seconds">Live</button>
         <button class="btn" id="refresh" type="button">Refresh</button>
       </div>
     </header>
 
     <main id="main" tabindex="-1">
+      <section class="panel" id="login" hidden aria-labelledby="login-title">
+        <div class="panel-head"><h2 id="login-title">Connect to the control plane</h2></div>
+        <form id="login-form" class="login-body">
+          <label class="field">
+            <span class="field-k">Access token</span>
+            <input id="token-input" type="password" autocomplete="off" placeholder="Paste the control-plane token" />
+          </label>
+          <p class="hint">Servers started with <code>--token ""</code> need no token.</p>
+          <p class="error-msg" id="login-error" role="alert" hidden></p>
+          <button class="btn" type="submit">Connect</button>
+        </form>
+      </section>
+
       <section class="stats" aria-label="Summary">
         <div class="stat">
           <span class="stat-k">Workloads</span>
@@ -366,6 +405,14 @@ main { padding: 20px 28px 40px; max-width: 1180px; }
         </div>
       </section>
 
+      <section class="panel" id="detail" hidden aria-labelledby="detail-title">
+        <div class="panel-head">
+          <h2 id="detail-title">Workload</h2>
+          <span class="hint" id="detail-sub"></span>
+        </div>
+        <div id="detail-body"></div>
+      </section>
+
       <section class="panel" id="events" aria-labelledby="ev-title">
         <div class="panel-head">
           <h2 id="ev-title">Recent events</h2>
@@ -387,17 +434,20 @@ main { padding: 20px 28px 40px; max-width: 1180px; }
   </div>
 </div>
 
-<script>window.__VORYNEX_DEMO__ = {"hosts": [{"host_id": "host_4f2a9c\u2026", "hostname": "payments", "mode": "protect", "registered_at": "2026-11-01T10:37:47.818668+00:00"}, {"host_id": "host_8b1e77\u2026", "hostname": "billing", "mode": "observe", "registered_at": "2026-11-03T10:37:47.818668+00:00"}], "events": [{"host_id": "host_4f2a9c\u2026", "record": {"seq": 190, "event": {"timestamp": "2026-11-04T10:37:35.818668Z", "type": "file", "action": "execve", "resource": "/bin/bash", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 189, "event": {"timestamp": "2026-11-04T10:37:13.818668Z", "type": "network", "action": "connect", "resource": "169.254.169.254:80", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 188, "event": {"timestamp": "2026-11-04T10:36:56.818668Z", "type": "file", "action": "openat", "resource": "/app/.env", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 187, "event": {"timestamp": "2026-11-04T10:36:37.818668Z", "type": "network", "action": "connect", "resource": "api.stripe.com:443", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 186, "event": {"timestamp": "2026-11-04T10:36:11.818668Z", "type": "file", "action": "openat", "resource": "/app/server.js", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 185, "event": {"timestamp": "2026-11-04T10:35:47.818668Z", "type": "file", "action": "openat", "resource": "/app/.next/cache/chunk.mo", "allowed": false, "reason": "-1 ENOENT (No such file or directory)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 184, "event": {"timestamp": "2026-11-04T10:35:26.818668Z", "type": "file", "action": "openat", "resource": "/app/node_modules/next/package.json", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 88, "event": {"timestamp": "2026-11-04T10:37:25.818668Z", "type": "file", "action": "execve", "resource": "/usr/bin/curl", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 87, "event": {"timestamp": "2026-11-04T10:36:47.818668Z", "type": "network", "action": "connect", "resource": "api.resend.com:443", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 86, "event": {"timestamp": "2026-11-04T10:36:19.818668Z", "type": "file", "action": "openat", "resource": "/app/config.yaml", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 85, "event": {"timestamp": "2026-11-04T10:35:37.818668Z", "type": "file", "action": "openat", "resource": "/app/secrets/db.pem", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}]};</script>
+<script>window.__VORYNEX_DEMO__ = {"hosts": [{"host_id": "host_4f2a9c\u2026", "hostname": "payments", "mode": "protect", "registered_at": "2026-11-01T10:52:53.748542+00:00"}, {"host_id": "host_8b1e77\u2026", "hostname": "billing", "mode": "observe", "registered_at": "2026-11-03T10:52:53.748542+00:00"}], "events": [{"host_id": "host_4f2a9c\u2026", "record": {"seq": 190, "event": {"timestamp": "2026-11-04T10:52:41.748542Z", "type": "file", "action": "execve", "resource": "/bin/bash", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 189, "event": {"timestamp": "2026-11-04T10:52:19.748542Z", "type": "network", "action": "connect", "resource": "169.254.169.254:80", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 188, "event": {"timestamp": "2026-11-04T10:52:02.748542Z", "type": "file", "action": "openat", "resource": "/app/.env", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 187, "event": {"timestamp": "2026-11-04T10:51:43.748542Z", "type": "network", "action": "connect", "resource": "api.stripe.com:443", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 186, "event": {"timestamp": "2026-11-04T10:51:17.748542Z", "type": "file", "action": "openat", "resource": "/app/server.js", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 185, "event": {"timestamp": "2026-11-04T10:50:53.748542Z", "type": "file", "action": "openat", "resource": "/app/.next/cache/chunk.mo", "allowed": false, "reason": "-1 ENOENT (No such file or directory)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 184, "event": {"timestamp": "2026-11-04T10:50:32.748542Z", "type": "file", "action": "openat", "resource": "/app/node_modules/next/package.json", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 88, "event": {"timestamp": "2026-11-04T10:52:31.748542Z", "type": "file", "action": "execve", "resource": "/usr/bin/curl", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 87, "event": {"timestamp": "2026-11-04T10:51:53.748542Z", "type": "network", "action": "connect", "resource": "api.resend.com:443", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 86, "event": {"timestamp": "2026-11-04T10:51:25.748542Z", "type": "file", "action": "openat", "resource": "/app/config.yaml", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 85, "event": {"timestamp": "2026-11-04T10:50:43.748542Z", "type": "file", "action": "openat", "resource": "/app/secrets/db.pem", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}]};</script>
 <script>
 // Vorynex dashboard (M8).
-// Reads the control-plane API and renders hosts, protection mode, and a
-// containment event timeline. All user/agent data is inserted via textContent.
+// Reads the control-plane API and renders hosts, protection mode, a workload
+// detail panel, and a containment event timeline. All agent data is inserted
+// via textContent, never innerHTML.
 
 const $ = (sel) => document.querySelector(sel);
 
 const params = new URLSearchParams(location.search);
-const tokenParam = params.get("token");
-if (tokenParam) sessionStorage.setItem("vorynex-token", tokenParam);
+if (params.get("token")) sessionStorage.setItem("vorynex-token", params.get("token"));
+
+const MODES = ["observe", "protect", "lockdown"];
+const POLL_MS = 15000;
 
 const state = {
   token: sessionStorage.getItem("vorynex-token") || "",
@@ -406,9 +456,14 @@ const state = {
   selectedHost: null,
   onlyContained: false,
   busy: false,
+  paused: false,
+  needsAuth: false,
+  lastLoad: 0,
 };
 
-const MODES = ["observe", "protect", "lockdown"];
+let pollTimer = null;
+
+class AuthError extends Error {}
 
 function authHeaders() {
   return state.token ? { Authorization: "Bearer " + state.token } : {};
@@ -416,6 +471,7 @@ function authHeaders() {
 
 async function getJSON(path) {
   const res = await fetch(path, { headers: authHeaders() });
+  if (res.status === 401) throw new AuthError("unauthorized");
   if (!res.ok) throw new Error("HTTP " + res.status);
   return res.json();
 }
@@ -458,18 +514,18 @@ function ago(ts) {
   return Math.floor(s / 86400) + "d ago";
 }
 
-// An event is "contained" when the kernel refused the access. strace records
-// any failed syscall as allowed:false, including harmless ENOENT misses, so we
-// only count permission denials (EACCES/EPERM) as containment.
+function eventOf(e) {
+  return (e && e.record && e.record.event) || {};
+}
+
+// "Contained" means the kernel refused the access. strace records every failed
+// syscall as allowed:false, including harmless ENOENT misses, so count only
+// permission denials.
 function isContained(e) {
   const ev = eventOf(e);
   if (!ev || ev.allowed !== false) return false;
   const reason = String(ev.reason || "");
   return reason.includes("EACCES") || reason.includes("EPERM");
-}
-
-function eventOf(e) {
-  return (e && e.record && e.record.event) || {};
 }
 
 function hostStats(hostId) {
@@ -494,26 +550,79 @@ function hostLabel(id) {
   return h ? (h.hostname || h.host_id) : id;
 }
 
-async function load() {
-  setStatus("loading", "Loading");
+function isInteracting() {
+  const a = document.activeElement;
+  if (!a) return false;
+  return ["#wl-body", "#ev-body", "#detail-body"].some((sel) => {
+    const root = $(sel);
+    return root && root.contains(a);
+  });
+}
+
+async function load(opts = {}) {
+  if (!opts.silent) setStatus("loading", "Loading");
   try {
+    let hosts, events;
     if (window.__VORYNEX_DEMO__) {
-      state.hosts = window.__VORYNEX_DEMO__.hosts || [];
-      state.events = window.__VORYNEX_DEMO__.events || [];
+      hosts = window.__VORYNEX_DEMO__.hosts || [];
+      events = window.__VORYNEX_DEMO__.events || [];
+      // In the static preview, open the first workload so the detail panel is
+      // visible without interaction.
+      if (!state.selectedHost && hosts.length) state.selectedHost = hosts[0].host_id;
     } else {
-      const [hosts, events] = await Promise.all([
+      const [h, e] = await Promise.all([
         getJSON("/v1/hosts"),
         getJSON("/v1/events?limit=300"),
       ]);
-      state.hosts = hosts.hosts || [];
-      state.events = events.events || [];
+      hosts = h.hosts || [];
+      events = e.events || [];
     }
-    render();
+    state.hosts = hosts;
+    state.events = events;
+    state.lastLoad = Date.now();
+    hideLogin();
+    // Don't steal focus or rebuild the DOM under the operator's hands during a
+    // silent poll; the state is updated and the next render will pick it up.
+    if (!(opts.silent && isInteracting())) render();
     setStatus("ok", window.__VORYNEX_DEMO__ ? "Preview" : "Connected");
   } catch (err) {
-    renderError(err);
-    setStatus("error", "Unreachable");
+    if (err instanceof AuthError) {
+      showLogin();
+      setStatus("error", "Sign in required");
+      return;
+    }
+    if (opts.silent) {
+      setStatus("error", "Refresh failed");
+    } else {
+      renderError(err);
+      setStatus("error", "Unreachable");
+    }
   }
+}
+
+function showLogin(msg) {
+  state.needsAuth = true;
+  $("#login").hidden = false;
+  $(".stats").hidden = true;
+  $("#workloads").hidden = true;
+  $("#detail").hidden = true;
+  $("#events").hidden = true;
+  $("#signout").hidden = !state.token;
+  if (msg) {
+    const e = $("#login-error");
+    e.textContent = msg;
+    e.hidden = false;
+  }
+  $("#token-input").focus();
+}
+
+function hideLogin() {
+  state.needsAuth = false;
+  $("#login").hidden = true;
+  $(".stats").hidden = false;
+  $("#workloads").hidden = false;
+  $("#events").hidden = false;
+  $("#signout").hidden = !state.token || !!window.__VORYNEX_DEMO__;
 }
 
 function render() {
@@ -533,10 +642,11 @@ function render() {
   $("#subline").textContent = state.hosts.length
     ? `${state.hosts.length} host${state.hosts.length === 1 ? "" : "s"} · ${state.events.length} events · Tier 0 spawn-time containment`
     : "No hosts enrolled yet";
-  $("#wl-hint").textContent = host ? `Filtered to ${host.host_id}` : "";
+  $("#wl-hint").textContent = host ? `Filtered to ${host.hostname || host.host_id}` : "";
   $("#clear-filter").hidden = !host;
 
   renderWorkloads();
+  renderDetail();
   renderEvents();
 }
 
@@ -549,7 +659,7 @@ function renderWorkloads() {
     body.append(
       el("div", { class: "empty" }, [
         el("h3", { text: "No workloads enrolled yet" }),
-        el("p", { text: "Enroll this host and export telemetry. The dashboard reads from the local control plane." }),
+        el("p", { text: "Enroll a host and export telemetry. The dashboard reads from the local control plane." }),
         cmd,
       ])
     );
@@ -579,7 +689,7 @@ function renderWorkloads() {
         class: "row-btn",
         type: "button",
         "aria-pressed": String(state.selectedHost === h.host_id),
-        title: "Filter events to this workload",
+        title: "Open this workload",
       },
       [
         el("span", { class: "mono", text: h.hostname || h.host_id }),
@@ -619,11 +729,7 @@ function statusBadge(s) {
 function modeControl(host) {
   const group = el("div", { class: "modes", role: "group", "aria-label": "Protection mode for " + host.host_id });
   for (const m of MODES) {
-    const b = el("button", {
-      type: "button",
-      "aria-pressed": String(host.mode === m),
-      text: m,
-    });
+    const b = el("button", { type: "button", "aria-pressed": String(host.mode === m), text: m });
     if (state.busy) b.disabled = true;
     b.addEventListener("click", () => setMode(host, m));
     group.append(b);
@@ -658,6 +764,62 @@ async function setMode(host, mode) {
   }
 }
 
+function renderDetail() {
+  const host = selectedHostObj();
+  const panel = $("#detail");
+  if (!host) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+  $("#detail-title").textContent = host.hostname || host.host_id;
+  $("#detail-sub").textContent = host.host_id;
+
+  const s = hostStats(host.host_id);
+  const body = $("#detail-body");
+  body.textContent = "";
+
+  const grid = el("div", { class: "detail-grid" });
+  grid.append(detailStat("Protection mode", modeControl(host)));
+  grid.append(detailStat("Events", el("span", { class: "detail-v num", text: String(s.events) })));
+  grid.append(detailStat("Contained", el("span", { class: "detail-v num detail-ok", text: String(s.contained) })));
+  grid.append(detailStat("Last event", el("span", { class: "detail-v", text: s.last ? ago(s.last) : "—" })));
+
+  const recent = state.events.filter((e) => e.host_id === host.host_id && isContained(e)).slice(0, 4);
+  if (recent.length) {
+    grid.append(
+      el("div", { class: "detail-recent" }, [
+        el("span", { class: "detail-k", text: "Contained recently" }),
+        el("ul", { class: "detail-list" }, recent.map((e) => {
+          const ev = eventOf(e);
+          return el("li", {}, [
+            el("span", { class: "mono", text: (ev.action || "access") + " " + (ev.resource || "") }),
+            el("span", { class: "muted", text: ev.reason || "" }),
+          ]);
+        })),
+      ])
+    );
+  }
+  body.append(grid);
+  body.append(
+    el("div", { class: "detail-foot" }, [
+      el("span", { class: "muted", text: "Mode applies on the next agent sync." }),
+      (() => {
+        const b = el("button", { class: "btn btn-quiet", type: "button", text: "Clear selection" });
+        b.addEventListener("click", () => { state.selectedHost = null; render(); });
+        return b;
+      })(),
+    ])
+  );
+}
+
+function detailStat(label, node) {
+  return el("div", { class: "detail-stat" }, [
+    el("span", { class: "detail-k", text: label }),
+    node,
+  ]);
+}
+
 function renderEvents() {
   const body = $("#ev-body");
   body.textContent = "";
@@ -690,11 +852,12 @@ function renderEvents() {
     li.append(el("span", { class: "event-time", text: fmtTime(ev.timestamp) }));
 
     const what = el("div", { class: "event-what" });
-    const head = el("div", {}, [
-      el("span", { class: "event-act", text: (ev.action || "access") + " " }),
-      el("span", { class: "event-target", text: ev.resource || "(unknown)" }),
-    ]);
-    what.append(head);
+    what.append(
+      el("div", {}, [
+        el("span", { class: "event-act", text: (ev.action || "access") + " " }),
+        el("span", { class: "event-target", text: ev.resource || "(unknown)" }),
+      ])
+    );
     what.append(el("div", { class: "event-host", text: hostLabel(e.host_id) }));
     if (contained && ev.reason) what.append(el("div", { class: "event-why", text: ev.reason }));
     li.append(what);
@@ -716,27 +879,31 @@ function renderEvents() {
 function renderError(err) {
   const body = $("#wl-body");
   body.textContent = "";
-  const unauthorized = String(err && err.message) === "HTTP 401";
   body.append(
     el("div", { class: "error" }, [
-      el("h3", { text: unauthorized ? "Authentication required" : "Cannot reach the control plane" }),
-      el("p", {
-        text: unauthorized
-          ? "This control plane requires a token. Open the dashboard with ?token=<your-token> or run the server with --token \"\" for local use."
-          : "The dashboard could not load hosts or events. Check that vorynex-cloud is running and refresh.",
-      }),
-      el("button", { class: "btn", type: "button", text: "Retry" , id: "retry" }),
+      el("h3", { text: "Cannot reach the control plane" }),
+      el("p", { text: "The dashboard could not load hosts or events. Check that vorynex-cloud is running, then retry." }),
+      (() => {
+        const b = el("button", { class: "btn", type: "button", text: "Retry" });
+        b.addEventListener("click", () => load());
+        return b;
+      })(),
     ])
   );
-  const retry = body.querySelector("#retry");
-  if (retry) retry.addEventListener("click", load);
-
   $("#ev-body").textContent = "";
   $("#ev-body").append(el("div", { class: "empty" }, [el("p", { text: "Event timeline unavailable while disconnected." })]));
 }
 
+function startLive() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(() => {
+    if (document.hidden || state.paused || state.needsAuth) return;
+    load({ silent: true });
+  }, POLL_MS);
+}
+
 // ---- wiring ----
-$("#refresh").addEventListener("click", load);
+$("#refresh").addEventListener("click", () => load());
 $("#only-contained").addEventListener("change", (e) => {
   state.onlyContained = e.target.checked;
   renderEvents();
@@ -745,8 +912,40 @@ $("#clear-filter").addEventListener("click", () => {
   state.selectedHost = null;
   render();
 });
+$("#live").addEventListener("click", () => {
+  state.paused = !state.paused;
+  $("#live").textContent = state.paused ? "Paused" : "Live";
+  $("#live").setAttribute("aria-pressed", String(!state.paused));
+  if (!state.paused) load({ silent: true });
+});
+$("#login-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const value = $("#token-input").value.trim();
+  state.token = value;
+  if (value) sessionStorage.setItem("vorynex-token", value);
+  else sessionStorage.removeItem("vorynex-token");
+  $("#login-error").hidden = true;
+  await load();
+  if (state.needsAuth) {
+    const e = $("#login-error");
+    e.textContent = "That token was rejected.";
+    e.hidden = false;
+  }
+});
+$("#signout").addEventListener("click", () => {
+  state.token = "";
+  sessionStorage.removeItem("vorynex-token");
+  state.hosts = [];
+  state.events = [];
+  state.selectedHost = null;
+  showLogin("Signed out. Enter a token to reconnect.");
+});
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && !state.paused && !state.needsAuth) load({ silent: true });
+});
 
 load();
+startLive();
 
 </script>
 </body>
