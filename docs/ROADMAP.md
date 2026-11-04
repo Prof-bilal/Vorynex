@@ -127,9 +127,16 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
 - [ ] Policy-based dashboard view (needs the agent to upload its policy)
 - [ ] Diff and graph views
 
-## Milestone 11 — CVE correlation
-- [ ] Ingest CISA KEV, NVD, GHSA, OSV
-- [ ] Map advisories → affected workloads
+## Milestone 11 — CVE correlation  ✅ core done
+- [x] Parse OSV advisories (which include GitHub Security Advisories) and the
+      CISA KEV catalog
+- [x] Semver range matching plus explicit affected-version lists
+- [x] Correlate a workload's `package-lock.json` dependencies; KEV membership by
+      id or alias marks an advisory known-exploited
+- [x] CLI: `vorynex cve scan --lockfile <package-lock.json> --osv <file>
+      [--kev <file>] [--workload <name>] [--json]`
+- [ ] Live feed fetching (OSV/NVD/KEV APIs) and NVD CVSS enrichment
+- [ ] Dashboard CVE view (needs workload SBOM upload)
 
 ## Milestone 12 — Emergency Shield
 - [ ] AI-proposes → deterministic-validation → simulate → observe → enforce

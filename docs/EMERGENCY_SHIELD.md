@@ -126,3 +126,14 @@ Clear messaging on every surface:
 - Only helps when the exploit manifests as observable OS behavior.
 - Cannot contain pure in-process exploitation or exfil over allowed egress.
 - Depends on advisory quality and how quickly behavior is understood.
+
+## Implementation status (MVP)
+
+- `engine/cve` parses **OSV** advisories (GitHub Security Advisories are OSV
+  format) and the **CISA KEV** catalog; it correlates an npm `package-lock.json`
+  against advisories with semver ranges, and KEV membership (by id or alias)
+  marks an advisory known-exploited.
+- `vorynex cve scan --lockfile <package-lock.json> --osv <file> [--kev <file>]
+  [--workload <name>] [--json]`.
+- Not yet: live feed fetching, NVD CVSS enrichment, and turning a match into a
+  **candidate containment** with the validation pipeline above (Milestone 12).

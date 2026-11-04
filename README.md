@@ -115,7 +115,8 @@ go run ./cmd/vorynex trace
 ```
 
 Other commands: `vorynex discover --details`, `vorynex policy generate --from <events.jsonl>`,
-and `vorynex blast-radius --policy <file>` (what a compromised workload could reach).
+`vorynex blast-radius --policy <file>` (what a compromised workload could reach), and
+`vorynex cve scan --lockfile package-lock.json --osv advisory.json [--kev kev.json]`.
 
 Then open <http://127.0.0.1:8787> in a browser.
 
