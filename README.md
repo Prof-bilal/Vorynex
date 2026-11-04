@@ -118,7 +118,8 @@ Other commands: `vorynex discover --details`, `vorynex policy generate --from <e
 `vorynex blast-radius --policy <file>` (what a compromised workload could reach),
 `vorynex cve scan --lockfile package-lock.json --osv advisory.json [--kev kev.json]`, and
 `vorynex shield --lockfile package-lock.json --osv advisory.json --events events.jsonl`
-(propose, validate, and simulate CVE containment).
+(propose, validate, and simulate CVE containment), and `vorynex live status`
+(Tier 1 capability report).
 
 Then open <http://127.0.0.1:8787> in a browser.
 

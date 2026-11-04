@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/vorynex/vorynex/engine/enforce/live"
 	"github.com/vorynex/vorynex/engine/enforce/spawntime"
 )
 
@@ -27,10 +28,15 @@ func runDoctor() {
 			fmt.Printf("  landlock      unavailable (needs kernel 5.13+ with CONFIG_SECURITY_LANDLOCK)\n")
 		}
 		fmt.Printf("  lsm           %s\n", lsmList())
-		if hasBPFLSM() {
-			fmt.Printf("  bpf-lsm       available (Tier 1 live enforcement possible; needs CAP_BPF)\n")
+		caps := live.Detect()
+		if caps.Available {
+			fmt.Printf("  tier-1        available (eBPF-LSM: file-granular exec, live enforcement)\n")
 		} else {
-			fmt.Printf("  bpf-lsm       unavailable (Tier 1 needs kernel 5.7+ with CONFIG_BPF_LSM)\n")
+			reason := "unavailable"
+			if len(caps.Reasons) > 0 {
+				reason = caps.Reasons[0]
+			}
+			fmt.Printf("  tier-1        unavailable (%s)\n", reason)
 		}
 	}
 
@@ -62,8 +68,4 @@ func lsmList() string {
 		return strings.TrimSpace(string(b))
 	}
 	return "unknown (securityfs not mounted?)"
-}
-
-func hasBPFLSM() bool {
-	return strings.Contains(lsmList(), "bpf")
 }

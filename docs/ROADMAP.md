@@ -66,11 +66,15 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
 - [ ] File-granular exec control via Tier 1 (Landlock exec control is
       directory-scoped)
 
-## Milestone 5 — Tier 1 live enforcement
-- [ ] eBPF-LSM attach per cgroup (`security_bprm_check`, `file_open`,
-      `socket_connect`, `capable`) — **priority: file-granular exec containment**
-- [ ] cgroups v2 resource anchoring; nftables egress
-- [ ] Kernel capability detection + honest degradation
+## Milestone 5 — Tier 1 live enforcement  ◐ partial
+- [x] Capability detection: kernel, LSM list, BTF, CAP_BPF/CAP_PERFMON, with
+      honest reasons (`engine/enforce/live`); `vorynex live status`
+- [x] Deterministic enforcement plan from a policy — `bprm_check_security`,
+      `file_open`, `socket_connect`, `capable` (`vorynex live plan --policy`)
+- [x] `doctor` reports Tier 1 availability from real capabilities, not guesses
+- [ ] BPF-LSM loader — requires root/CAP_BPF and a clang-built object; **not
+      shipped untested**. This is the remaining work.
+- [ ] cgroups v2 anchoring and nftables egress
 - [ ] Verify no-workload-kill by default; no-outage containment
 
 ## Milestone 6 — Policy generation  ✅ core done

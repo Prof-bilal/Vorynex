@@ -43,6 +43,8 @@ Commands:
                 vorynex cve scan --lockfile <package-lock.json> --osv <file> [--kev <file>]
   shield      Propose, validate, and simulate CVE containment
                 vorynex shield --lockfile <package-lock.json> --osv <file> [--events <events.jsonl>]
+  live        Tier 1 capability status and enforcement plan
+                vorynex live status | vorynex live plan --policy <file>
   version     Print the version
 
 See docs/ARCHITECTURE.md.`
@@ -102,6 +104,11 @@ func main() {
 		}
 	case "shield":
 		if err := runShield(args[1:]); err != nil {
+			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
+			os.Exit(1)
+		}
+	case "live":
+		if err := runLive(args[1:]); err != nil {
 			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
 			os.Exit(1)
 		}
