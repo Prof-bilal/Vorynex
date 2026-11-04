@@ -50,11 +50,16 @@ func telemetryStatus(dir string) error {
 	fmt.Printf("buffered       %d records\n", len(records))
 	fmt.Printf("cursor         %d\n", cursor)
 	fmt.Printf("pending export %d records\n", pending)
+	if tok := telemetry.LoadHostToken(dir); tok != "" {
+		fmt.Printf("host token     stored (%d chars)\n", len(tok))
+	} else {
+		fmt.Println("host token     none (issued at enrollment when auth is enabled)")
+	}
 	return nil
 }
 
 func telemetryExport(dir string, args []string) error {
-	var endpoint, token, policyPath string
+	var endpoint, token, policyPath, hostTokenFlag string
 	once := false
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
@@ -67,6 +72,11 @@ func telemetryExport(dir string, args []string) error {
 			if i+1 < len(args) {
 				i++
 				token = args[i]
+			}
+		case "--host-token":
+			if i+1 < len(args) {
+				i++
+				hostTokenFlag = args[i]
 			}
 		case "--policy":
 			if i+1 < len(args) {
@@ -87,13 +97,46 @@ func telemetryExport(dir string, args []string) error {
 	if err != nil {
 		return err
 	}
-	hostname, _ := os.Hostname()
 	client := telemetry.NewClient(endpoint, token)
 	ctx := context.Background()
-	if err := client.Enroll(ctx, hostID, hostname); err != nil {
-		return err
+
+	// Prefer a per-host token: the admin token is only needed to enroll (or to
+	// adopt a rotated token explicitly).
+	hostToken := telemetry.LoadHostToken(dir)
+	if hostTokenFlag != "" {
+		if err := telemetry.SaveHostToken(dir, hostTokenFlag); err != nil {
+			return err
+		}
+		hostToken = hostTokenFlag
+		fmt.Printf("stored per-host token for %s\n", hostID)
 	}
-	fmt.Printf("enrolled %s at %s\n", hostID, endpoint)
+	if hostToken == "" {
+		hostname, _ := os.Hostname()
+		issued, err := client.Enroll(ctx, hostID, hostname)
+		if err != nil {
+			return err
+		}
+		if issued != "" {
+			if err := telemetry.SaveHostToken(dir, issued); err != nil {
+				return err
+			}
+			hostToken = issued
+			fmt.Printf("stored per-host token for %s\n", hostID)
+		}
+		fmt.Printf("enrolled %s at %s\n", hostID, endpoint)
+	} else {
+		fmt.Printf("using stored per-host token for %s\n", hostID)
+	}
+	client.SetToken(hostToken)
+
+	// Best-effort: converge the local desired state so a supervisor can apply a
+	// staged rollout. Failure here never blocks telemetry.
+	if rs, ok, err := client.Desired(ctx, hostID); err == nil && ok {
+		prev := telemetry.LoadDesired(dir)
+		if err := telemetry.SaveDesired(dir, rs.Revision, rs.Mode, rs.PolicyYAML); err == nil && rs.Revision != prev.Revision {
+			fmt.Printf("desired state updated: revision %d, mode %s\n", rs.Revision, rs.Mode)
+		}
+	}
 
 	if policyPath != "" {
 		data, err := os.ReadFile(policyPath)

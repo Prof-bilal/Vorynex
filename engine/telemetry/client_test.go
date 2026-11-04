@@ -23,7 +23,7 @@ func TestClientExportResumable(t *testing.T) {
 		switch r.URL.Path {
 		case "/v1/enroll":
 			enrolled = true
-			json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+			json.NewEncoder(w).Encode(map[string]any{"ok": true, "host_token": "hosttok_1"})
 		case "/v1/events":
 			var req struct {
 				HostID  string   `json:"host_id"`
@@ -50,8 +50,12 @@ func TestClientExportResumable(t *testing.T) {
 
 	c := NewClient(ts.URL, "tok")
 	ctx := context.Background()
-	if err := c.Enroll(ctx, "host_x", "testhost"); err != nil {
+	tok, err := c.Enroll(ctx, "host_x", "testhost")
+	if err != nil {
 		t.Fatal(err)
+	}
+	if tok != "hosttok_1" {
+		t.Fatalf("issued host token = %q, want hosttok_1", tok)
 	}
 	if !enrolled {
 		t.Fatal("enroll not received")

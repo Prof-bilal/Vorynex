@@ -112,7 +112,11 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
 - [x] `vorynex telemetry status | export --endpoint <url> [--token <t>] [--once] [--policy <file>]`
 - [x] Minimal cloud ingestion API: `POST /v1/enroll`, `POST /v1/events`
       (`cloud/api`, `cmd/vorynex-cloud`)
-- [ ] Real auth (per-host tokens, rotation), TLS, durable store (DB not JSONL)
+- [x] Per-host tokens: issued at enrollment, stored by the agent and used for
+      events/policy/SBOM; a host token cannot act for another host or as admin;
+      rotation via `POST /v1/hosts/{id}/rotate-token` (old token dies instantly)
+- [x] TLS: `--tls-cert`/`--tls-key` (or terminate TLS at a reverse proxy)
+- [ ] Durable store (a DB instead of JSONL files) for multi-node deployments
 - [x] Agent-enforced signing trust root (Milestone 6): the agent verifies the
       policy signature before it loads it
 
@@ -167,8 +171,9 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
       [--kev <file>] [--workload <name>] [--json]`
 - [x] Live OSV querying and live CISA KEV download (`cve scan --live
       --kev-live`)
-- [ ] NVD CVSS enrichment
-- [ ] Dashboard CVE view (needs workload SBOM upload)
+- [x] NVD CVSS enrichment (`cve scan --nvd`; `NVD_API_KEY` raises the rate limit)
+- [x] SBOM upload (`cve scan --upload`) and a dashboard CVE view (severity,
+      package, installed/fixed, KEV badge)
 
 ## Milestone 12 — Emergency Shield  ✅ core done
 - [x] `engine/shield`: propose containment from CVE matches (adds denies only,
@@ -181,8 +186,12 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
 - [x] CLI: `vorynex shield --lockfile <package-lock.json> --osv <file>
       [--kev <file>] [--policy <base.yaml>] [--events <events.jsonl>]
       [--out <candidate.yaml>] [--json]`
-- [ ] Live advisory ingestion and AI-drafted, advisory-specific rules
-- [ ] Automatic observe -> protect rollout orchestration via the control plane
+- [x] Rollout orchestration: the control plane stages a desired mode/policy
+      (`POST /v1/hosts/{id}/rollout`, validated on staging) and the agent
+      converges (`vorynex rollout pull|status`); the supervisor applies it — no
+      silent restart of a customer's workload
+- [ ] AI-drafted, advisory-specific rules (deterministic propose/validate/
+      simulate is done; AI drafting needs a model backend)
 
 ## Milestone 13 — Private beta
 - [ ] Real self-hosted Docker/Node workloads

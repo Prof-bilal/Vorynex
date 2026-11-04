@@ -23,6 +23,7 @@ const state = {
   lastLoad: 0,
   policy: null,
   policyHost: null,
+  sbom: null,
 };
 
 let pollTimer = null;
@@ -146,7 +147,7 @@ async function load(opts = {}) {
     state.lastLoad = Date.now();
     hideLogin();
     const hostId = state.selectedHost || (state.hosts[0] && state.hosts[0].host_id) || null;
-    await loadPolicy(hostId);
+    await loadHostExtras(hostId);
     // Don't steal focus or rebuild the DOM under the operator's hands during a
     // silent poll; the state is updated and the next render will pick it up.
     if (!(opts.silent && isInteracting())) render();
@@ -166,26 +167,36 @@ async function load(opts = {}) {
   }
 }
 
-// loadPolicy fetches the effective policy a host uploaded. It never throws: a
-// missing or malformed policy is shown as an empty state, not an error.
-async function loadPolicy(hostId) {
+// loadHostExtras fetches the effective policy and the correlated SBOM a host
+// uploaded. It never throws: a missing artifact is an empty state, not an error.
+async function loadHostExtras(hostId) {
   if (window.__VORYNEX_DEMO__) {
     state.policy = window.__VORYNEX_DEMO__.policy || null;
+    state.sbom = window.__VORYNEX_DEMO__.sbom || null;
     state.policyHost = hostId || null;
     renderPolicies();
+    renderCves();
     return;
   }
   state.policyHost = hostId || null;
   state.policy = null;
+  state.sbom = null;
   if (hostId) {
+    const base = "/v1/hosts/" + encodeURIComponent(hostId);
     try {
-      const res = await fetch("/v1/hosts/" + encodeURIComponent(hostId) + "/policy", { headers: authHeaders() });
-      if (res.ok) state.policy = await res.json();
+      const [pol, sb] = await Promise.all([
+        fetch(base + "/policy", { headers: authHeaders() }).catch(() => null),
+        fetch(base + "/sbom", { headers: authHeaders() }).catch(() => null),
+      ]);
+      if (pol && pol.ok) state.policy = await pol.json();
+      if (sb && sb.ok) state.sbom = await sb.json();
     } catch (_) {
       state.policy = null;
+      state.sbom = null;
     }
   }
   renderPolicies();
+  renderCves();
 }
 
 function showLogin(msg) {
@@ -197,6 +208,7 @@ function showLogin(msg) {
   $("#events").hidden = true;
   $("#blast").hidden = true;
   $("#policies").hidden = true;
+  $("#cves").hidden = true;
   $("#signout").hidden = !state.token;
   if (msg) {
     const e = $("#login-error");
@@ -214,6 +226,7 @@ function hideLogin() {
   $("#events").hidden = false;
   $("#blast").hidden = false;
   $("#policies").hidden = false;
+  $("#cves").hidden = false;
   $("#signout").hidden = !state.token || !!window.__VORYNEX_DEMO__;
 }
 
@@ -241,6 +254,7 @@ function render() {
   renderDetail();
   renderBlast();
   renderPolicies();
+  renderCves();
   renderEvents();
 }
 
@@ -292,7 +306,7 @@ function renderWorkloads() {
     );
     nameBtn.addEventListener("click", () => {
       state.selectedHost = state.selectedHost === h.host_id ? null : h.host_id;
-      loadPolicy(state.selectedHost || (state.hosts[0] && state.hosts[0].host_id) || null);
+      loadHostExtras(state.selectedHost || (state.hosts[0] && state.hosts[0].host_id) || null);
       render();
     });
 
@@ -649,6 +663,61 @@ function renderPolicies() {
   );
 }
 
+// renderCves shows the correlated SBOM a host uploaded: which dependency
+// versions are affected, whether a fix exists, and whether it is known-exploited.
+function renderCves() {
+  const body = $("#cve-body");
+  const host = selectedHostObj();
+  $("#cve-sub").textContent = host ? (host.hostname || host.host_id) : "no host selected";
+  body.textContent = "";
+
+  const sbom = state.sbom && state.sbom.sbom;
+  if (!sbom || !sbom.entries || sbom.entries.length === 0) {
+    body.append(
+      el("div", { class: "empty" }, [
+        el("h3", { text: "No CVEs reported" }),
+        el("p", { text: "The agent uploads a correlated SBOM with:" }),
+        el("p", { class: "mono muted", text: "vorynex cve scan --lockfile package-lock.json --live --nvd --upload --endpoint <url>" }),
+      ])
+    );
+    return;
+  }
+
+  const table = el("table", { class: "table" });
+  table.append(
+    el("thead", {}, [
+      el("tr", {}, [
+        el("th", { text: "Severity" }),
+        el("th", { text: "Advisory" }),
+        el("th", { text: "Package" }),
+        el("th", { text: "Installed" }),
+        el("th", { text: "Fixed" }),
+        el("th", { text: "Exploited" }),
+      ]),
+    ])
+  );
+  const tbody = el("tbody");
+  for (const e of sbom.entries) {
+    const sev = e.cvss ? `${e.cvss.score.toFixed(1)} ${e.cvss.severity || ""}`.trim() : "—";
+    const sevClass = e.cvss && (e.cvss.severity === "CRITICAL" || e.cvss.severity === "HIGH") ? "badge-contained" : "badge-allowed";
+    tbody.append(
+      el("tr", {}, [
+        el("td", {}, [el("span", { class: "badge " + sevClass, text: sev })]),
+        el("td", { class: "mono" }, [e.advisory_id + (e.aliases && e.aliases.length ? " (" + e.aliases.join(", ") + ")" : "")]),
+        el("td", { class: "mono", text: e.name }),
+        el("td", { class: "mono", text: e.version }),
+        el("td", { class: "mono", text: e.fixed || "unknown" }),
+        el("td", {}, [e.known_exploited ? el("span", { class: "badge badge-contained", text: "KEV" }) : el("span", { class: "muted", text: "no" })]),
+      ])
+    );
+  }
+  table.append(tbody);
+  body.append(table);
+  body.append(
+    el("p", { class: "muted pol-foot", text: `${sbom.entries.length} affected package(s) across ${sbom.packages} dependencies. Scan: ${sbom.scanned_at || "—"}.` })
+  );
+}
+
 function renderEvents() {
   const body = $("#ev-body");
   body.textContent = "";
@@ -741,7 +810,7 @@ $("#only-contained").addEventListener("change", (e) => {
 });
 $("#clear-filter").addEventListener("click", () => {
   state.selectedHost = null;
-  loadPolicy(state.hosts[0] && state.hosts[0].host_id);
+  loadHostExtras(state.hosts[0] && state.hosts[0].host_id);
   render();
 });
 $("#live").addEventListener("click", () => {

@@ -51,6 +51,8 @@ type Match struct {
 	Package  Package  `json:"package"`
 	Advisory Advisory `json:"advisory"`
 	Fixed    string   `json:"fixed,omitempty"`
+	// CVSS is populated when NVD enrichment is requested.
+	CVSS *CVSS `json:"cvss,omitempty"`
 }
 
 // ---- OSV ----

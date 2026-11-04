@@ -117,6 +117,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
 			os.Exit(1)
 		}
+	case "rollout":
+		if err := runRollout(args[1:]); err != nil {
+			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
+			os.Exit(1)
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "vorynex: %q is not implemented in this build\n", args[0])
 		fmt.Fprintln(os.Stderr, "run `vorynex help` for the command surface")

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/vorynex/vorynex/engine/cve"
+	"github.com/vorynex/vorynex/engine/telemetry"
 )
 
 // runCve implements `vorynex cve scan`.
@@ -17,8 +18,8 @@ func runCve(args []string) error {
 	if len(args) == 0 || args[0] != "scan" {
 		return fmt.Errorf("usage: vorynex cve scan --lockfile <package-lock.json> (--osv <file> | --live) [--kev <file>|--kev-live] [--workload <name>] [--json]")
 	}
-	var lockPath, osvPath, kevPath, workload string
-	var jsonOut, live, kevLive bool
+	var lockPath, osvPath, kevPath, workload, endpoint, token string
+	var jsonOut, live, kevLive, nvd, upload bool
 	timeout := 20 * time.Second
 	for i := 1; i < len(args); i++ {
 		switch args[i] {
@@ -42,12 +43,26 @@ func runCve(args []string) error {
 				i++
 				workload = args[i]
 			}
+		case "--endpoint":
+			if i+1 < len(args) {
+				i++
+				endpoint = args[i]
+			}
+		case "--token":
+			if i+1 < len(args) {
+				i++
+				token = args[i]
+			}
 		case "--json":
 			jsonOut = true
 		case "--live":
 			live = true
 		case "--kev-live":
 			kevLive = true
+		case "--nvd":
+			nvd = true
+		case "--upload":
+			upload = true
 		case "--timeout":
 			if i+1 < len(args) {
 				i++
@@ -119,6 +134,52 @@ func runCve(args []string) error {
 	}
 
 	matches := cve.Correlate(workload, pkgs, advisories, kevSet)
+
+	if nvd {
+		nvdClient := cve.NewNVDClient()
+		if k := os.Getenv("NVD_API_KEY"); k != "" {
+			nvdClient.APIKey = k
+		}
+		enriched := 0
+		for i := range matches {
+			id := matches[i].Advisory.CVEID()
+			if id == "" {
+				continue
+			}
+			cv, ok, err := nvdClient.Lookup(ctx, id)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "nvd %s: %v\n", id, err)
+				continue
+			}
+			if ok {
+				matches[i].CVSS = &cv
+				enriched++
+			}
+			// NVD allows ~5 requests/30s unauthenticated; stay well under it.
+			time.Sleep(1200 * time.Millisecond)
+		}
+		fmt.Fprintf(os.Stderr, "NVD enrichment: %d of %d matches carry CVSS\n", enriched, len(matches))
+	}
+
+	if upload {
+		if endpoint == "" {
+			return fmt.Errorf("--upload requires --endpoint")
+		}
+		dir := telemetry.DefaultDir()
+		hostID, err := telemetry.LoadOrCreateHostID(dir)
+		if err != nil {
+			return err
+		}
+		client := telemetry.NewClient(endpoint, token)
+		if ht := telemetry.LoadHostToken(dir); ht != "" {
+			client.SetToken(ht)
+		}
+		if err := client.UploadSBOM(ctx, hostID, cve.BuildSBOM(workload, len(pkgs), matches)); err != nil {
+			return err
+		}
+		fmt.Printf("uploaded SBOM (%d entries) for %s\n", len(matches), hostID)
+	}
+
 	if jsonOut {
 		b, _ := json.MarshalIndent(matches, "", "  ")
 		fmt.Println(string(b))
@@ -141,11 +202,15 @@ func runCve(args []string) error {
 		return nil
 	}
 
-	fmt.Printf("%-9s %-30s %-22s %-10s %-10s\n", "EXPLOITED", "ADVISORY", "PACKAGE", "INSTALLED", "FIXED")
+	fmt.Printf("%-9s %-6s %-30s %-22s %-10s %-10s\n", "EXPLOITED", "CVSS", "ADVISORY", "PACKAGE", "INSTALLED", "FIXED")
 	for _, m := range matches {
 		flag := ""
 		if m.Advisory.KnownExploited {
 			flag = "yes"
+		}
+		cvss := "—"
+		if m.CVSS != nil {
+			cvss = fmt.Sprintf("%.1f", m.CVSS.Score)
 		}
 		id := m.Advisory.ID
 		if len(m.Advisory.Aliases) > 0 {
@@ -155,7 +220,7 @@ func runCve(args []string) error {
 		if fixed == "" {
 			fixed = "unknown"
 		}
-		fmt.Printf("%-9s %-30s %-22s %-10s %-10s\n", flag, id, m.Package.Name, m.Package.Version, fixed)
+		fmt.Printf("%-9s %-6s %-30s %-22s %-10s %-10s\n", flag, cvss, id, m.Package.Name, m.Package.Version, fixed)
 		if m.Advisory.Summary != "" {
 			fmt.Printf("          %s\n", m.Advisory.Summary)
 		}

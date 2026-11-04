@@ -13,9 +13,11 @@ import (
 
 func main() {
 	addr := flag.String("addr", "127.0.0.1:8787", "listen address")
-	token := flag.String("token", "", "bearer token required from agents and the dashboard (empty disables auth)")
+	token := flag.String("token", "", "bearer admin token required from agents and the dashboard (empty disables auth)")
 	store := flag.String("store", "vorynex-cloud/events.jsonl", "event store path")
 	dashboard := flag.String("dashboard", "cloud/dashboard", "dashboard static directory")
+	tlsCert := flag.String("tls-cert", "", "TLS certificate file (with --tls-key) enables HTTPS")
+	tlsKey := flag.String("tls-key", "", "TLS private key file")
 	flag.Parse()
 
 	apiHandler := api.New(*token, api.NewStore(*store)).Handler()
@@ -30,7 +32,14 @@ func main() {
 		})
 	}
 
-	log.Printf("vorynex-cloud listening on %s (store %s, dashboard %s)", *addr, *store, *dashboard)
+	if *tlsCert != "" && *tlsKey != "" {
+		log.Printf("vorynex-cloud listening on %s over TLS (store %s, dashboard %s)", *addr, *store, *dashboard)
+		if err := http.ListenAndServeTLS(*addr, *tlsCert, *tlsKey, mux); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+	log.Printf("vorynex-cloud listening on %s (store %s, dashboard %s) — set --tls-cert/--tls-key for HTTPS, or terminate TLS at a reverse proxy", *addr, *store, *dashboard)
 	if err := http.ListenAndServe(*addr, mux); err != nil {
 		log.Fatal(err)
 	}

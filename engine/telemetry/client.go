@@ -30,19 +30,24 @@ func NewClient(endpoint, token string) *Client {
 	}
 }
 
-// Enroll registers this host with the cloud control plane.
-func (c *Client) Enroll(ctx context.Context, hostID, hostname string) error {
+// SetToken replaces the bearer token, e.g. after adopting a per-host token.
+func (c *Client) SetToken(token string) { c.Token = token }
+
+// Enroll registers this host and returns a per-host token when the control
+// plane issues one (empty when auth is disabled or the host already has one).
+func (c *Client) Enroll(ctx context.Context, hostID, hostname string) (string, error) {
 	body, _ := json.Marshal(map[string]string{"host_id": hostID, "hostname": hostname})
 	var out struct {
-		OK bool `json:"ok"`
+		OK        bool   `json:"ok"`
+		HostToken string `json:"host_token"`
 	}
 	if err := c.post(ctx, "/v1/enroll", body, &out); err != nil {
-		return err
+		return "", err
 	}
 	if !out.OK {
-		return fmt.Errorf("telemetry: enrollment rejected")
+		return "", fmt.Errorf("telemetry: enrollment rejected")
 	}
-	return nil
+	return out.HostToken, nil
 }
 
 // Send uploads a batch of records.
@@ -88,6 +93,53 @@ func (c *Client) UploadPolicy(ctx context.Context, hostID string, yaml []byte) e
 		return err
 	}
 	return c.post(ctx, "/v1/hosts/"+hostID+"/policy", body, nil)
+}
+
+// UploadSBOM sends a correlated SBOM so the control plane can show CVE exposure.
+func (c *Client) UploadSBOM(ctx context.Context, hostID string, sbom any) error {
+	body, err := json.Marshal(map[string]any{"sbom": sbom})
+	if err != nil {
+		return err
+	}
+	return c.post(ctx, "/v1/hosts/"+hostID+"/sbom", body, nil)
+}
+
+// Rollout is the desired state the control plane wants this host to run.
+type Rollout struct {
+	HostID     string `json:"host_id"`
+	Revision   int    `json:"revision"`
+	Mode       string `json:"mode"`
+	PolicyYAML string `json:"policy_yaml,omitempty"`
+}
+
+// Desired fetches the desired rollout state. ok is false when none is staged.
+func (c *Client) Desired(ctx context.Context, hostID string) (Rollout, bool, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.Endpoint+"/v1/hosts/"+hostID+"/desired", nil)
+	if err != nil {
+		return Rollout{}, false, err
+	}
+	if c.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.Token)
+	}
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return Rollout{}, false, fmt.Errorf("telemetry: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return Rollout{}, false, nil
+	}
+	if resp.StatusCode/100 != 2 {
+		b, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return Rollout{}, false, fmt.Errorf("telemetry: desired HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
+	}
+	var out struct {
+		Rollout Rollout `json:"rollout"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return Rollout{}, false, err
+	}
+	return out.Rollout, true, nil
 }
 
 func (c *Client) post(ctx context.Context, path string, body []byte, out any) error {

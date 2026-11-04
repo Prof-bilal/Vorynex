@@ -101,6 +101,11 @@ leave it running (one terminal):
 go run ./cmd/vorynex-cloud --addr 127.0.0.1:8787 --token ""
 ```
 
+Set a real `--token` to require auth: the agent enrolls with it once, the control
+plane issues a **per-host token** the agent uses from then on, and the dashboard
+signs in with the admin token. Rotate a host with
+`POST /v1/hosts/{id}/rotate-token`. Add `--tls-cert`/`--tls-key` for HTTPS.
+
 In a second terminal, record a workload with no enforcement, then export:
 
 ```bash
@@ -132,12 +137,18 @@ vorynex protect --from events.jsonl -- node server.js
 vorynex blast-radius --policy policy.yaml
 vorynex blast-radius --policy before.yaml --compare after.yaml
 
-# CVE correlation, live from OSV + the CISA KEV catalog
-vorynex cve scan --lockfile package-lock.json --live --kev-live
-vorynex shield --lockfile package-lock.json --osv advisory.json --events events.jsonl
+# CVE correlation, live from OSV + the CISA KEV catalog, with NVD severity
+vorynex cve scan --lockfile package-lock.json --live --kev-live --nvd
+
+# upload the correlated SBOM so the dashboard shows CVE exposure
+vorynex cve scan --lockfile package-lock.json --live --nvd --upload --endpoint http://127.0.0.1:8787
 
 # upload the effective policy so the dashboard can show it
 vorynex telemetry export --endpoint http://127.0.0.1:8787 --policy policy.yaml --once
+
+# converge to a rollout the control plane staged (the supervisor applies it)
+vorynex rollout pull --endpoint http://127.0.0.1:8787
+vorynex rollout status
 
 # Tier 1 capability report and live enforcement (requires root)
 vorynex live status

@@ -91,6 +91,29 @@ demo["policy"] = {
     },
 }
 
+demo["sbom"] = {
+    "host_id": "host_4f2a9c…",
+    "sbom": {
+        "workload": "payments",
+        "scanned_at": (now - timedelta(minutes=8)).isoformat(),
+        "packages": 412,
+        "entries": [
+            {"name": "next", "version": "15.0.2", "advisory_id": "GHSA-7gfc-8cq8-jh5f", "aliases": ["CVE-2025-55182"],
+             "summary": "Server-side request forgery in server actions", "fixed": "15.0.4", "known_exploited": True,
+             "cvss": {"score": 9.8, "severity": "CRITICAL", "version": "3.1"}},
+            {"name": "express", "version": "4.18.2", "advisory_id": "GHSA-rv95-896h-c2vc", "aliases": ["CVE-2024-29041"],
+             "summary": "Open redirect in malformed URLs", "fixed": "4.19.2", "known_exploited": False,
+             "cvss": {"score": 6.1, "severity": "MEDIUM", "version": "3.1"}},
+            {"name": "lodash", "version": "4.17.21", "advisory_id": "GHSA-35jh-r3h4-6jhm", "aliases": ["CVE-2021-23337"],
+             "summary": "Command injection via template", "fixed": "4.17.21", "known_exploited": False,
+             "cvss": {"score": 7.2, "severity": "HIGH", "version": "3.1"}},
+            {"name": "body-parser", "version": "1.20.1", "advisory_id": "GHSA-qwcr-r2fm-qrc7", "aliases": ["CVE-2024-45590"],
+             "summary": "Denial of service when urlencoding is enabled", "fixed": "1.20.3", "known_exploited": False,
+             "cvss": {"score": 7.5, "severity": "HIGH", "version": "3.1"}},
+        ],
+    },
+}
+
 html = html.replace('<link rel="stylesheet" href="styles.css">', "<style>\n" + css + "\n</style>")
 html = html.replace(
     '<script src="app.js"></script>',
