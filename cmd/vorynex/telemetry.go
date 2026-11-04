@@ -54,7 +54,7 @@ func telemetryStatus(dir string) error {
 }
 
 func telemetryExport(dir string, args []string) error {
-	var endpoint, token string
+	var endpoint, token, policyPath string
 	once := false
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
@@ -67,6 +67,11 @@ func telemetryExport(dir string, args []string) error {
 			if i+1 < len(args) {
 				i++
 				token = args[i]
+			}
+		case "--policy":
+			if i+1 < len(args) {
+				i++
+				policyPath = args[i]
 			}
 		case "--once":
 			once = true
@@ -89,6 +94,17 @@ func telemetryExport(dir string, args []string) error {
 		return err
 	}
 	fmt.Printf("enrolled %s at %s\n", hostID, endpoint)
+
+	if policyPath != "" {
+		data, err := os.ReadFile(policyPath)
+		if err != nil {
+			return err
+		}
+		if err := client.UploadPolicy(ctx, hostID, data); err != nil {
+			return fmt.Errorf("upload policy %s: %w", policyPath, err)
+		}
+		fmt.Printf("uploaded policy %s\n", policyPath)
+	}
 
 	spool, err := telemetry.OpenSpool(telemetry.DefaultSpoolPath(), 0)
 	if err != nil {

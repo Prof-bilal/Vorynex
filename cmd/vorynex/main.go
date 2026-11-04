@@ -128,7 +128,7 @@ func main() {
 // launches the command under the spawn-time boundary. On success it never
 // returns: the process image is replaced by the workload.
 func runExec(args []string) error {
-	var policyPath string
+	var policyPath, sigPath, keySpec string
 	i := 0
 	for i < len(args) && args[i] != "--" {
 		switch args[i] {
@@ -138,8 +138,20 @@ func runExec(args []string) error {
 			}
 			policyPath = args[i+1]
 			i += 2
+		case "--sig":
+			if i+1 >= len(args) {
+				return fmt.Errorf("--sig requires a value")
+			}
+			sigPath = args[i+1]
+			i += 2
+		case "--pubkey":
+			if i+1 >= len(args) {
+				return fmt.Errorf("--pubkey requires a value")
+			}
+			keySpec = args[i+1]
+			i += 2
 		default:
-			return fmt.Errorf("unknown flag %q (want --policy <file> -- <command...>)", args[i])
+			return fmt.Errorf("unknown flag %q (want --policy <file> [--sig <file> --pubkey <hex|file>] -- <command...>)", args[i])
 		}
 	}
 	if i >= len(args) {
@@ -151,6 +163,16 @@ func runExec(args []string) error {
 	}
 	if len(cmd) == 0 {
 		return fmt.Errorf("no command after `--`")
+	}
+	if (sigPath == "") != (keySpec == "") {
+		return fmt.Errorf("--sig and --pubkey must be given together")
+	}
+	if sigPath != "" {
+		keyID, err := verifyDetached(policyPath, sigPath, keySpec)
+		if err != nil {
+			return fmt.Errorf("refusing to run: %w", err)
+		}
+		fmt.Fprintf(os.Stderr, "policy signature verified (key %s)\n", keyID)
 	}
 	p, err := policy.Load(policyPath)
 	if err != nil {

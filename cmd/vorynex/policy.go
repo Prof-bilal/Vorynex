@@ -9,22 +9,98 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/vorynex/vorynex/engine/audit"
 	"github.com/vorynex/vorynex/engine/policygen"
 	"github.com/vorynex/vorynex/engine/profiler"
 )
 
-// runPolicy implements `vorynex policy generate`.
+// runPolicy implements `vorynex policy <generate|verify|pubkey>`.
 func runPolicy(args []string) error {
-	if len(args) == 0 || args[0] != "generate" {
-		return fmt.Errorf("usage: vorynex policy generate --from <events.jsonl> [--from <events2.jsonl>...] [--min-sessions N] [--out <file>] [--sign-key <file>]")
+	if len(args) == 0 {
+		return fmt.Errorf("usage: vorynex policy <generate|verify|pubkey> [...]")
 	}
+	switch args[0] {
+	case "generate":
+		return policyGenerate(args[1:])
+	case "verify":
+		return policyVerify(args[1:])
+	case "pubkey":
+		return policyPubkey(args[1:])
+	default:
+		return fmt.Errorf("unknown policy subcommand %q (want generate, verify, or pubkey)", args[0])
+	}
+}
+
+// policyVerify checks a detached signature against the trust root.
+func policyVerify(args []string) error {
+	var policyPath, sigPath, keySpec string
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--policy":
+			if i+1 < len(args) {
+				i++
+				policyPath = args[i]
+			}
+		case "--sig":
+			if i+1 < len(args) {
+				i++
+				sigPath = args[i]
+			}
+		case "--pubkey":
+			if i+1 < len(args) {
+				i++
+				keySpec = args[i]
+			}
+		default:
+			return fmt.Errorf("unknown flag %q", args[i])
+		}
+	}
+	if policyPath == "" || sigPath == "" || keySpec == "" {
+		return fmt.Errorf("usage: vorynex policy verify --policy <file> --sig <file> --pubkey <hex|file>")
+	}
+	keyID, err := verifyDetached(policyPath, sigPath, keySpec)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("signature valid (key %s)\n", keyID)
+	return nil
+}
+
+// policyPubkey prints the public key for a signing seed, so it can be pinned as
+// the trust root on agents.
+func policyPubkey(args []string) error {
+	var keyPath string
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--key":
+			if i+1 < len(args) {
+				i++
+				keyPath = args[i]
+			}
+		default:
+			return fmt.Errorf("unknown flag %q", args[i])
+		}
+	}
+	if keyPath == "" {
+		return fmt.Errorf("usage: vorynex policy pubkey --key <seed-file>")
+	}
+	seed, err := readSeed(keyPath)
+	if err != nil {
+		return err
+	}
+	pub := ed25519.NewKeyFromSeed(seed).Public().(ed25519.PublicKey)
+	fmt.Printf("public key  %s\n", hex.EncodeToString(pub))
+	fmt.Printf("fingerprint %s\n", fingerprint(pub))
+	fmt.Println("\nPin this on agents as the trust root; they refuse policies that do not verify.")
+	return nil
+}
+
+func policyGenerate(args []string) error {
 	var froms []string
 	var out, signKey string
 	minSessions := 0
-	rest := args[1:]
+	rest := args
 	for i := 0; i < len(rest); i++ {
 		switch rest[i] {
 		case "--from":
@@ -136,15 +212,8 @@ func signPolicyFile(out string, data []byte, keyPath string) (string, error) {
 }
 
 func loadOrCreateSeed(path string) ([]byte, error) {
-	if b, err := os.ReadFile(path); err == nil {
-		trimmed := strings.TrimSpace(string(b))
-		if raw, err := hex.DecodeString(trimmed); err == nil && len(raw) == ed25519.SeedSize {
-			return raw, nil
-		}
-		if len(b) == ed25519.SeedSize {
-			return b, nil
-		}
-		return nil, fmt.Errorf("signing key %s must be a %d-byte seed (hex or raw)", path, ed25519.SeedSize)
+	if seed, err := readSeed(path); err == nil {
+		return seed, nil
 	}
 	seed := make([]byte, ed25519.SeedSize)
 	if _, err := rand.Read(seed); err != nil {

@@ -61,12 +61,17 @@ func ParseStraceLine(line string) (Event, bool) {
 		return Event{}, false
 	}
 	action := line[:open]
+	pid := 0
 	if end := strings.LastIndex(action, "] "); end >= 0 { // [pid 12] prefix
+		if i := strings.LastIndex(action[:end], "pid "); i >= 0 {
+			pid, _ = strconv.Atoi(strings.TrimSpace(action[i+4 : end]))
+		}
 		action = action[end+2:]
-	} else if pid, call, hasPrefix := strings.Cut(action, " "); hasPrefix {
-		if _, err := strconv.Atoi(pid); err == nil {
+	} else if p, call, hasPrefix := strings.Cut(action, " "); hasPrefix {
+		if n, err := strconv.Atoi(p); err == nil {
 			// strace -f prints a bare numeric PID prefix, padded to a
 			// fixed width ("402   openat("), so trim the padding too.
+			pid = n
 			action = strings.TrimLeft(call, " ")
 		}
 	}
@@ -80,12 +85,20 @@ func ParseStraceLine(line string) (Event, bool) {
 	if !allowed {
 		reason = result
 	}
-	return Event{Type: eventType(action), Action: action, Resource: resource, Allowed: allowed, Reason: reason}, true
+	return Event{
+		Type:     eventType(action),
+		Action:   action,
+		Resource: resource,
+		Allowed:  allowed,
+		Reason:   reason,
+		PID:      pid,
+		Result:   strings.TrimSpace(result),
+	}, true
 }
 
 func isAuditedCall(action string) bool {
 	switch action {
-	case "open", "openat", "openat2", "creat", "access", "faccessat", "faccessat2", "stat", "lstat", "newfstatat", "statx", "readlink", "readlinkat", "execve", "execveat", "unlink", "unlinkat", "rename", "renameat", "renameat2", "mkdir", "mkdirat", "rmdir", "chmod", "fchmodat", "chown", "fchownat", "connect", "bind", "sendto", "sendmsg", "recvfrom", "recvmsg":
+	case "open", "openat", "openat2", "creat", "access", "faccessat", "faccessat2", "stat", "lstat", "newfstatat", "statx", "readlink", "readlinkat", "execve", "execveat", "unlink", "unlinkat", "rename", "renameat", "renameat2", "mkdir", "mkdirat", "rmdir", "chmod", "fchmodat", "chown", "fchownat", "connect", "bind", "sendto", "sendmsg", "recvfrom", "recvmsg", "clone", "clone3", "fork", "vfork":
 		return true
 	default:
 		return false
@@ -96,6 +109,8 @@ func eventType(action string) string {
 	switch action {
 	case "connect", "bind", "sendto", "sendmsg", "recvfrom", "recvmsg":
 		return "network"
+	case "clone", "clone3", "fork", "vfork":
+		return "process"
 	default:
 		return "file"
 	}

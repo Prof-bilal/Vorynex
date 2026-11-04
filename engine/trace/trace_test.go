@@ -53,6 +53,26 @@ func TestBuildDeniedAndWouldDeny(t *testing.T) {
 	}
 }
 
+func TestBuildLineageFromForkAndExec(t *testing.T) {
+	base := time.Now()
+	events := []audit.Event{
+		{Type: "file", Action: "execve", Resource: "/usr/bin/node", Allowed: true, PID: 100, Timestamp: base},
+		{Type: "process", Action: "clone", Resource: "clone(child_stack=NULL)", Allowed: true, PID: 100, Result: "200", Timestamp: base.Add(time.Millisecond)},
+		{Type: "file", Action: "execve", Resource: "/bin/bash", Allowed: false, Reason: "-1 EACCES (Permission denied)", PID: 200, Timestamp: base.Add(2 * time.Millisecond)},
+	}
+	traces := Build(events, "host_1", "web")
+	if len(traces) != 1 {
+		t.Fatalf("want 1 trace, got %d: %+v", len(traces), traces)
+	}
+	tr := traces[0]
+	if tr.Confidence != "exact" {
+		t.Errorf("confidence = %q, want exact", tr.Confidence)
+	}
+	if want := "/usr/bin/node → /bin/bash"; tr.Attempt != want {
+		t.Errorf("attempt = %q, want %q", tr.Attempt, want)
+	}
+}
+
 func TestBuildIgnoresHarmless(t *testing.T) {
 	events := []audit.Event{
 		{Type: "file", Action: "openat", Resource: "/app/server.js", Allowed: true},

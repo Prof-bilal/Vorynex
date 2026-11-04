@@ -21,6 +21,8 @@ const state = {
   paused: false,
   needsAuth: false,
   lastLoad: 0,
+  policy: null,
+  policyHost: null,
 };
 
 let pollTimer = null;
@@ -143,6 +145,8 @@ async function load(opts = {}) {
     state.events = events;
     state.lastLoad = Date.now();
     hideLogin();
+    const hostId = state.selectedHost || (state.hosts[0] && state.hosts[0].host_id) || null;
+    await loadPolicy(hostId);
     // Don't steal focus or rebuild the DOM under the operator's hands during a
     // silent poll; the state is updated and the next render will pick it up.
     if (!(opts.silent && isInteracting())) render();
@@ -162,6 +166,28 @@ async function load(opts = {}) {
   }
 }
 
+// loadPolicy fetches the effective policy a host uploaded. It never throws: a
+// missing or malformed policy is shown as an empty state, not an error.
+async function loadPolicy(hostId) {
+  if (window.__VORYNEX_DEMO__) {
+    state.policy = window.__VORYNEX_DEMO__.policy || null;
+    state.policyHost = hostId || null;
+    renderPolicies();
+    return;
+  }
+  state.policyHost = hostId || null;
+  state.policy = null;
+  if (hostId) {
+    try {
+      const res = await fetch("/v1/hosts/" + encodeURIComponent(hostId) + "/policy", { headers: authHeaders() });
+      if (res.ok) state.policy = await res.json();
+    } catch (_) {
+      state.policy = null;
+    }
+  }
+  renderPolicies();
+}
+
 function showLogin(msg) {
   state.needsAuth = true;
   $("#login").hidden = false;
@@ -170,6 +196,7 @@ function showLogin(msg) {
   $("#detail").hidden = true;
   $("#events").hidden = true;
   $("#blast").hidden = true;
+  $("#policies").hidden = true;
   $("#signout").hidden = !state.token;
   if (msg) {
     const e = $("#login-error");
@@ -186,6 +213,7 @@ function hideLogin() {
   $("#workloads").hidden = false;
   $("#events").hidden = false;
   $("#blast").hidden = false;
+  $("#policies").hidden = false;
   $("#signout").hidden = !state.token || !!window.__VORYNEX_DEMO__;
 }
 
@@ -212,6 +240,7 @@ function render() {
   renderWorkloads();
   renderDetail();
   renderBlast();
+  renderPolicies();
   renderEvents();
 }
 
@@ -263,6 +292,7 @@ function renderWorkloads() {
     );
     nameBtn.addEventListener("click", () => {
       state.selectedHost = state.selectedHost === h.host_id ? null : h.host_id;
+      loadPolicy(state.selectedHost || (state.hosts[0] && state.hosts[0].host_id) || null);
       render();
     });
 
@@ -465,6 +495,10 @@ function traceDetails(ev) {
 }
 
 function renderBlast() {
+  if (state.policy && state.policy.blast_radius) {
+    renderPolicyBlast(state.policy.blast_radius);
+    return;
+  }
   const host = selectedHostObj();
   const hostId = host ? host.host_id : null;
   const reach = new Map();
@@ -516,6 +550,102 @@ function renderBlast() {
     el("div", { class: "blast-foot" }, [
       el("span", { class: "muted", text: "Observed reach from telemetry. The policy-based view arrives with policy upload." }),
     ])
+  );
+}
+
+// renderPolicyBlast shows the blast radius derived from the uploaded policy:
+// every line is a rule, never a score.
+function renderPolicyBlast(report) {
+  $("#blast-sub").textContent = (report.workload || "workload") + " · from the effective policy";
+  const body = $("#blast-body");
+  body.textContent = "";
+
+  const grid = el("div", { class: "blast" });
+
+  const reachCol = el("div", { class: "col reach" }, [el("h4", { text: "Reachable" })]);
+  const reach = report.reachable || [];
+  if (reach.length === 0) {
+    reachCol.append(el("p", { class: "muted", text: "Nothing reachable within the policy" }));
+  } else {
+    reachCol.append(
+      el("ul", {}, reach.slice(0, 12).map((r) => el("li", {}, [
+        el("span", { class: "ico", text: "!" }),
+        `${r.kind} ${r.target}${r.via ? "  ·  " + r.via : ""}`,
+      ])))
+    );
+  }
+
+  const holdCol = el("div", { class: "col hold" }, [el("h4", { text: "Contained" })]);
+  const hold = report.contained || [];
+  if (hold.length === 0) {
+    holdCol.append(el("p", { class: "muted", text: "No danger classes are contained by this policy" }));
+  } else {
+    holdCol.append(
+      el("ul", {}, hold.map((c) => el("li", {}, [
+        el("span", { class: "ico", text: "✓" }),
+        `${c.class}${c.reason ? "  ·  " + c.reason : ""}`,
+      ])))
+    );
+  }
+
+  grid.append(reachCol, holdCol);
+  body.append(grid);
+  body.append(
+    el("div", { class: "blast-foot" }, [
+      el("span", { class: "muted", text: "Derived from the policy this host uploaded. Enforcement stays local; the cloud is not in the request path." }),
+    ])
+  );
+}
+
+// renderPolicies shows the effective policy: the reviewable rule set and whether
+// high-confidence secret protection is on.
+function renderPolicies() {
+  const body = $("#pol-body");
+  const host = selectedHostObj();
+  $("#pol-sub").textContent = host ? (host.hostname || host.host_id) : "no host selected";
+  body.textContent = "";
+
+  if (!state.policy) {
+    body.append(
+      el("div", { class: "empty" }, [
+        el("h3", { text: "No policy uploaded" }),
+        el("p", { text: "The agent uploads its effective policy with:" }),
+        el("p", { class: "mono muted", text: "vorynex telemetry export --policy <file> --endpoint <url>" }),
+      ])
+    );
+    return;
+  }
+
+  const s = state.policy.summary || {};
+  body.append(
+    el("div", { class: "pol-head" }, [
+      el("span", { class: "badge", text: "schema v" + (s.version || "—") }),
+      el("span", { class: "badge " + (s.protect_secrets ? "badge-contained" : ""), text: s.protect_secrets ? "secret protection on" : "secret protection off" }),
+    ])
+  );
+
+  const groups = [
+    ["Read (ro)", s.read],
+    ["Write (rw)", s.write],
+    ["Denied paths", s.deny],
+    ["Exec allow", s.exec_allow],
+    ["Exec deny", s.exec_deny],
+    ["Network allow", s.network_allow],
+  ];
+  const grid = el("div", { class: "pol-grid" });
+  for (const [label, items] of groups) {
+    const col = el("div", { class: "pol-col" }, [el("h4", { text: label })]);
+    if (!items || items.length === 0) {
+      col.append(el("p", { class: "muted", text: "—" }));
+    } else {
+      col.append(el("ul", {}, items.slice(0, 12).map((x) => el("li", { text: x }))));
+      if (items.length > 12) col.append(el("p", { class: "muted", text: `+${items.length - 12} more` }));
+    }
+    grid.append(col);
+  }
+  body.append(grid);
+  body.append(
+    el("p", { class: "muted pol-foot", text: "Deny always wins over allow. This policy was validated by the control plane before it was stored." })
   );
 }
 
@@ -611,6 +741,7 @@ $("#only-contained").addEventListener("change", (e) => {
 });
 $("#clear-filter").addEventListener("click", () => {
   state.selectedHost = null;
+  loadPolicy(state.hosts[0] && state.hosts[0].host_id);
   render();
 });
 $("#live").addEventListener("click", () => {

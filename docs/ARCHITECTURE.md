@@ -48,39 +48,55 @@ Responsibilities: workload discovery, local monitoring, policy enforcement,
 process/fs/network controls, secrets protection, telemetry, attack-event
 generation.
 
-### Enforcement tiers
+<a id="enforcement-tier-design-frozen"></a>
+### Enforcement tiers (frozen)
 
 The foundation (Warden) enforces **only at process spawn**. That is a real
 constraint, and the architecture is explicit about it: a running workload
-cannot be confined by a primitive that binds at `exec`.
+cannot be confined by a primitive that binds at `exec`. Vorynex therefore
+freezes two tiers, both driven by one policy model and both local.
 
 | Tier | Applies to | Primitives | Strength |
 |---|---|---|---|
-| **Tier 0 — spawn-time** | A workload Vorynex launches (or relaunches) | `bwrap` (host), **Landlock + seccomp** (inside a container) | Strongest; structural |
-| **Tier 1 — live** | An already-running workload | **eBPF-LSM + cgroups v2 + nftables** | Enforces without restart; kernel-gated |
+| **Tier 0 — spawn-time** | A workload Vorynex launches | **Landlock** (unprivileged; host and container) | Strongest; structural |
+| **Tier 1 — live** | An already-running workload | **eBPF-LSM** (four hooks) + cgroups v2 | Enforces without restart; kernel-gated |
 
-**Why both.** Tier 0 is strictly stronger — the process *cannot* even see what
-it was not granted — but requires launching the workload under Vorynex. Tier 1
-attaches to a workload that is already running and is the only way to block on a
-process you did not launch. Neither tier alone covers the deployment reality, so
-Vorynex ships both under one policy model.
+**Why both.** Tier 0 is strictly stronger — the process *cannot* see what it was
+not granted — but requires launching the workload under Vorynex. Tier 1 attaches
+to a workload that is already running and is the only way to confine a process
+you did not launch. Neither tier alone covers the deployment reality, so Vorynex
+ships both under one policy model.
+
+**Tier 1 hooks (frozen):**
+
+| Hook | Denies |
+|---|---|
+| `lsm/capable` | one capability |
+| `lsm/bprm_check_security` | exec of one inode (file-granular: allow node, deny bash) |
+| `lsm/file_open` | opening one inode |
+| `lsm/socket_connect` | connect to one IPv4 address[:port] |
 
 **Critical design decisions:**
 
-- **Tier 0 inside Docker uses Landlock + seccomp, not bwrap.** `bwrap` needs
-  unprivileged user namespaces; Docker's default seccomp profile blocks
-  `unshare`/`mount`/`pivot_root`, so `bwrap` cannot run in a default container
-  without granting `SYS_ADMIN`/`--privileged` (unacceptable). Landlock and
-  seccomp are unprivileged and work inside a container. `bwrap` stays the Tier 0
-  path for host (non-container) deployments.
-- **Process-exec containment is new code, not inherited.** Warden bind-mounts
-  `/usr` and `/bin` read-only, so `/bin/bash` is executable inside a Warden
-  sandbox. Blocking shell exec requires a seccomp `execve` allowlist and/or
-  Landlock `EXECUTE` denial — built in `engine/enforce/`, not reused.
+- **Tier 0 uses Landlock, not bwrap.** `bwrap` needs unprivileged user
+  namespaces; Docker's default seccomp profile blocks the
+  `unshare`/`mount`/`pivot_root` it needs, so `bwrap` cannot run in a default
+  container without `--privileged`. Landlock is unprivileged and works on the
+  host and inside a container. Warden's `BuildBwrapArgs`/`BuildDockerArgs` are
+  deliberately **not** vendored.
+- **Process-exec containment is new code, not inherited.** Warden mounts `/usr`
+  and `/bin` read-only, so `/bin/bash` remains executable inside a Warden
+  sandbox. Tier 0 blocks it with a Landlock `EXECUTE` denial; Tier 1 blocks it
+  file-granularly at `bprm_check_security`.
+- **Tier 1 is disarmed by default and cgroup-scoped.** Loading the programs
+  changes nothing until userspace arms them for one cgroup id. A process outside
+  that cgroup is unaffected while armed, and a running workload is never killed;
+  disarming restores behavior exactly.
+- **Egress is enforced at `socket_connect`**, so a separate nftables layer is
+  not required for the MVP.
 - **Tier 1 requires kernel capability.** eBPF-LSM needs kernel ≥ 5.7,
-  `CONFIG_BPF_LSM`, BTF, and `CAP_BPF`/`CAP_PERFMON`. When unavailable, the
-  agent degrades to cgroups v2 + nftables (no exec/path blocking) and says so
-  loudly. See [FAILURE_MODES.md](FAILURE_MODES.md).
+  `CONFIG_BPF_LSM`, BTF, and `CAP_BPF`/`CAP_PERFMON`. When unavailable the agent
+  says so and stays on Tier 0. See [FAILURE_MODES.md](FAILURE_MODES.md).
 
 ### Local monitoring / learning
 

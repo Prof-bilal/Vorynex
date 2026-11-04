@@ -7,6 +7,7 @@ package api
 import (
 	"bufio"
 	"encoding/json"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -16,6 +17,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vorynex/vorynex/engine/blastradius"
+	"github.com/vorynex/vorynex/engine/policy"
 	"github.com/vorynex/vorynex/engine/telemetry"
 )
 
@@ -39,15 +42,30 @@ var Modes = map[string]bool{"observe": true, "protect": true, "lockdown": true}
 // Store persists enrolled hosts and ingested events. It uses JSONL files so the
 // MVP has no database dependency; a real store replaces it later.
 type Store struct {
-	mu    sync.Mutex
-	path  string
-	hosts map[string]Host
+	mu       sync.Mutex
+	path     string
+	hosts    map[string]Host
+	policies map[string]string
 }
 
 // NewStore opens (creating if needed) a store at path.
 func NewStore(path string) *Store {
-	st := &Store{path: path, hosts: map[string]Host{}}
+	st := &Store{path: path, hosts: map[string]Host{}, policies: map[string]string{}}
 	_ = os.MkdirAll(filepath.Dir(path), 0o755)
+	if f, err := os.Open(path + ".policies"); err == nil {
+		sc := bufio.NewScanner(f)
+		sc.Buffer(make([]byte, 8*1024), 8<<20)
+		for sc.Scan() {
+			if len(sc.Bytes()) == 0 {
+				continue
+			}
+			var rec policyRecord
+			if json.Unmarshal(sc.Bytes(), &rec) == nil && rec.HostID != "" {
+				st.policies[rec.HostID] = rec.YAML
+			}
+		}
+		f.Close()
+	}
 	if f, err := os.Open(path + ".hosts"); err == nil {
 		sc := bufio.NewScanner(f)
 		for sc.Scan() {
@@ -115,6 +133,42 @@ func (st *Store) saveHostsLocked() {
 	w := bufio.NewWriter(f)
 	for _, h := range st.hosts {
 		b, _ := json.Marshal(h)
+		w.Write(append(b, '\n'))
+	}
+	w.Flush()
+}
+
+// policyRecord is the persisted form of an uploaded policy.
+type policyRecord struct {
+	HostID string `json:"host_id"`
+	YAML   string `json:"yaml"`
+}
+
+// SetPolicy stores the effective policy YAML for a host.
+func (st *Store) SetPolicy(hostID, yaml string) {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	st.policies[hostID] = yaml
+	st.savePoliciesLocked()
+}
+
+// GetPolicy returns a host's uploaded policy.
+func (st *Store) GetPolicy(hostID string) (string, bool) {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	v, ok := st.policies[hostID]
+	return v, ok
+}
+
+func (st *Store) savePoliciesLocked() {
+	f, err := os.Create(st.path + ".policies")
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	w := bufio.NewWriter(f)
+	for host, yaml := range st.policies {
+		b, _ := json.Marshal(policyRecord{HostID: host, YAML: yaml})
 		w.Write(append(b, '\n'))
 	}
 	w.Flush()
@@ -287,7 +341,7 @@ func (s *Server) handleHosts(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"hosts": s.store.Hosts()})
 }
 
-// handleHost serves /v1/hosts/{id}/mode.
+// handleHost serves /v1/hosts/{id}/{mode|policy}.
 func (s *Server) handleHost(w http.ResponseWriter, r *http.Request) {
 	if !s.authorized(r) {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
@@ -295,10 +349,21 @@ func (s *Server) handleHost(w http.ResponseWriter, r *http.Request) {
 	}
 	rest := strings.TrimPrefix(r.URL.Path, "/v1/hosts/")
 	id, action, _ := strings.Cut(rest, "/")
-	if id == "" || action != "mode" {
+	if id == "" {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
 		return
 	}
+	switch action {
+	case "mode":
+		s.handleMode(w, r, id)
+	case "policy":
+		s.handlePolicy(w, r, id)
+	default:
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
+	}
+}
+
+func (s *Server) handleMode(w http.ResponseWriter, r *http.Request, id string) {
 	if r.Method != http.MethodPost {
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "POST required"})
 		return
@@ -315,4 +380,89 @@ func (s *Server) handleHost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "host_id": id, "mode": req.Mode})
+}
+
+// policySummary is the reviewable shape of an uploaded policy.
+type policySummary struct {
+	Version        int      `json:"version"`
+	Read           []string `json:"read"`
+	Write          []string `json:"write"`
+	Deny           []string `json:"deny"`
+	ExecAllow      []string `json:"exec_allow"`
+	ExecDeny       []string `json:"exec_deny"`
+	NetworkAllow   []string `json:"network_allow"`
+	ProtectSecrets bool     `json:"protect_secrets"`
+}
+
+func summarise(p policy.Policy) policySummary {
+	return policySummary{
+		Version:        p.Version,
+		Read:           p.Filesystem.Read,
+		Write:          p.Filesystem.Write,
+		Deny:           p.Filesystem.Deny,
+		ExecAllow:      p.Process.Exec.Allow,
+		ExecDeny:       p.Process.Exec.Deny,
+		NetworkAllow:   p.Network.Allow,
+		ProtectSecrets: p.Filesystem.ProtectSecrets,
+	}
+}
+
+func parsePolicyYAML(yaml string) (policy.Policy, error) {
+	f, err := os.CreateTemp("", "vorynex-upload-*.yaml")
+	if err != nil {
+		return policy.Policy{}, err
+	}
+	path := f.Name()
+	defer os.Remove(path)
+	if _, err := f.WriteString(yaml); err != nil {
+		f.Close()
+		return policy.Policy{}, err
+	}
+	f.Close()
+	return policy.Load(path)
+}
+
+// handlePolicy stores (POST) and returns (GET) the effective policy for a host.
+// GET includes a policy-derived blast radius; nothing here is invented.
+func (s *Server) handlePolicy(w http.ResponseWriter, r *http.Request, id string) {
+	switch r.Method {
+	case http.MethodGet:
+		yaml, ok := s.store.GetPolicy(id)
+		if !ok {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "no policy uploaded for this host"})
+			return
+		}
+		p, err := parsePolicyYAML(yaml)
+		if err != nil {
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "stored policy is invalid: " + err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"host_id":      id,
+			"yaml":         yaml,
+			"summary":      summarise(p),
+			"blast_radius": blastradius.FromPolicy(p, id, ""),
+		})
+	case http.MethodPost:
+		body, err := io.ReadAll(io.LimitReader(r.Body, 4<<20))
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		var req struct {
+			YAML string `json:"yaml"`
+		}
+		if err := json.Unmarshal(body, &req); err != nil || strings.TrimSpace(req.YAML) == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "yaml required"})
+			return
+		}
+		if _, err := parsePolicyYAML(req.YAML); err != nil {
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "invalid policy: " + err.Error()})
+			return
+		}
+		s.store.SetPolicy(id, req.YAML)
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "host_id": id})
+	default:
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "GET or POST required"})
+	}
 }

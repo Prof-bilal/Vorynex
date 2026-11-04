@@ -1,9 +1,10 @@
 // Package trace turns low-level audit events into plain-English containment
 // stories: what the workload tried, under which policy, and what happened.
 //
-// Events from strace carry no process lineage or ingress request, so a trace is
-// marked "inferred": it renders from the syscall event alone rather than
-// inventing an HTTP hop or a parent process it cannot prove.
+// Events from strace carry no ingress request, so a trace never invents an HTTP
+// hop. When the trace includes fork/exec records, a trace names the real process
+// lineage (e.g. "node -> /bin/bash") and is marked "exact"; otherwise it falls
+// back to the syscall event alone and is marked "inferred".
 package trace
 
 import (
@@ -11,6 +12,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -60,6 +62,8 @@ func Build(events []audit.Event, hostID, workload string) []Trace {
 		name = "workload"
 	}
 
+	parents, prog := processTree(events)
+
 	var out []Trace
 	for _, e := range events {
 		kind, target, dangerous, why := profiler.Classify(e)
@@ -69,6 +73,13 @@ func Build(events []audit.Event, hostID, workload string) []Trace {
 		result := ResultWouldDeny
 		if !e.Allowed && permissionDenied(e.Reason) {
 			result = ResultDenied
+		}
+		chain := lineage(e, parents, prog)
+		attempt := name + " → " + target
+		confidence := "inferred"
+		if len(chain) > 0 {
+			attempt = strings.Join(append(append([]string{}, chain...), target), " → ")
+			confidence = "exact"
 		}
 		out = append(out, Trace{
 			ID:       id(hostID, name, e),
@@ -80,17 +91,80 @@ func Build(events []audit.Event, hostID, workload string) []Trace {
 				{Label: actionVerb(e.Action), Kind: "action", Status: "attempt"},
 				{Label: target, Kind: "target", Status: statusFor(result)},
 			},
-			Attempt:     name + " → " + target,
+			Attempt:     attempt,
 			Policy:      policyFor(kind),
 			Result:      result,
 			Behavior:    behaviorFor(why),
 			Reason:      e.Reason,
-			Confidence:  "inferred",
+			Confidence:  confidence,
 			NextActions: nextActions(kind, why),
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Time.After(out[j].Time) })
 	return out
+}
+
+// processTree reconstructs parent links and per-pid program images from clone,
+// fork, and execve events, so a trace can name the lineage that reached a
+// dangerous call.
+func processTree(events []audit.Event) (parents map[int]int, prog map[int]string) {
+	parents = map[int]int{}
+	prog = map[int]string{}
+	ordered := append([]audit.Event(nil), events...)
+	sort.Slice(ordered, func(i, j int) bool { return ordered[i].Timestamp.Before(ordered[j].Timestamp) })
+	for _, e := range ordered {
+		switch e.Action {
+		case "clone", "clone3", "fork", "vfork":
+			if e.PID <= 0 {
+				continue
+			}
+			if child, err := strconv.Atoi(strings.TrimSpace(e.Result)); err == nil && child > 0 {
+				parents[child] = e.PID
+			}
+		case "execve", "execveat":
+			if e.PID > 0 && strings.HasPrefix(e.Resource, "/") {
+				prog[e.PID] = e.Resource
+			}
+		}
+	}
+	return parents, prog
+}
+
+// lineage returns the process chain that reached e, root first, excluding the
+// dangerous target itself. It is empty when the trace carries no fork/exec
+// evidence, which keeps the trace honest ("inferred").
+func lineage(e audit.Event, parents map[int]int, prog map[int]string) []string {
+	var rev []string
+	seen := map[int]bool{}
+	pid := e.PID
+	if e.Action != "execve" && e.Action != "execveat" {
+		if p, ok := prog[pid]; ok {
+			rev = append(rev, p)
+			seen[pid] = true
+		}
+	}
+	for hops := 0; hops < 8; hops++ {
+		parent, ok := parents[pid]
+		if !ok || seen[parent] {
+			break
+		}
+		seen[parent] = true
+		if p, ok := prog[parent]; ok {
+			rev = append(rev, p)
+		}
+		pid = parent
+	}
+	chain := make([]string, 0, len(rev))
+	for i := len(rev) - 1; i >= 0; i-- {
+		if len(chain) > 0 && chain[len(chain)-1] == rev[i] {
+			continue // collapse "node → node"
+		}
+		chain = append(chain, rev[i])
+	}
+	if len(chain) > 6 {
+		chain = chain[len(chain)-6:]
+	}
+	return chain
 }
 
 func id(hostID, workload string, e audit.Event) string {

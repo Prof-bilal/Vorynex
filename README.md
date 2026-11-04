@@ -114,13 +114,38 @@ go run ./cmd/vorynex telemetry export --endpoint http://127.0.0.1:8787 --once
 go run ./cmd/vorynex trace
 ```
 
-Other commands: `vorynex discover --details`, `vorynex policy generate --from <events.jsonl>`,
-`vorynex blast-radius --policy <file>` (what a compromised workload could reach),
-`vorynex cve scan --lockfile package-lock.json --osv advisory.json [--kev kev.json]`, and
-`vorynex shield --lockfile package-lock.json --osv advisory.json --events events.jsonl`
-(propose, validate, and simulate CVE containment), and `vorynex live status`
-(Tier 1 capability report). Tier 1 requires root: build the object with
-`make bpf`, then `vorynex live attach --object <path> --cgroup <path>`.
+Other commands:
+
+```bash
+# learn from several sessions at once; a capability must appear in N of them
+vorynex policy generate --from a.jsonl --from b.jsonl --min-sessions 2 --out policy.yaml --sign-key key.hex
+
+# pin the trust root, then verify a policy before running it
+vorynex policy pubkey --key key.hex
+vorynex policy verify --policy policy.yaml --sig policy.yaml.sig --pubkey <hex>
+vorynex exec --policy policy.yaml --sig policy.yaml.sig --pubkey <hex> -- node server.js
+
+# observe once, then launch under the generated high-confidence policy
+vorynex protect --from events.jsonl -- node server.js
+
+# blast radius, and the difference between two policies
+vorynex blast-radius --policy policy.yaml
+vorynex blast-radius --policy before.yaml --compare after.yaml
+
+# CVE correlation, live from OSV + the CISA KEV catalog
+vorynex cve scan --lockfile package-lock.json --live --kev-live
+vorynex shield --lockfile package-lock.json --osv advisory.json --events events.jsonl
+
+# upload the effective policy so the dashboard can show it
+vorynex telemetry export --endpoint http://127.0.0.1:8787 --policy policy.yaml --once
+
+# Tier 1 capability report and live enforcement (requires root)
+vorynex live status
+make bpf
+vorynex live attach --object engine/enforce/live/bpf/live.bpf.o \
+  --cgroup /sys/fs/cgroup/<group> --pid <pid> \
+  --deny-exec /bin/bash --deny-open /app/.env --block-connect 169.254.169.254:80 --cap 21
+```
 
 Then open <http://127.0.0.1:8787> in a browser.
 

@@ -80,6 +80,16 @@ func (c *Client) Export(ctx context.Context, spool *Spool, hostID string, cursor
 	return cursor, sent, nil
 }
 
+// UploadPolicy sends the effective policy YAML so the control plane can show
+// what this host runs under (and derive a policy-based blast radius).
+func (c *Client) UploadPolicy(ctx context.Context, hostID string, yaml []byte) error {
+	body, err := json.Marshal(map[string]string{"yaml": string(yaml)})
+	if err != nil {
+		return err
+	}
+	return c.post(ctx, "/v1/hosts/"+hostID+"/policy", body, nil)
+}
+
 func (c *Client) post(ctx context.Context, path string, body []byte, out any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.Endpoint+path, bytes.NewReader(body))
 	if err != nil {

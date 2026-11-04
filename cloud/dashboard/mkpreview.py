@@ -60,6 +60,37 @@ demo = {
     "events": payments + billing,
 }
 
+demo["policy"] = {
+    "host_id": "host_4f2a9c…",
+    "summary": {
+        "version": 1,
+        "read": ["/app", "/usr/lib/node_modules", "/etc/ssl/certs"],
+        "write": ["/app/uploads"],
+        "deny": ["/app/.env", "/app/.env.*", "**/*.pem", "**/credentials*"],
+        "exec_allow": ["/usr/bin/node", "/usr/local/bin/node"],
+        "exec_deny": ["/bin/bash", "/bin/sh", "/usr/bin/curl", "/usr/bin/wget"],
+        "network_allow": ["api.stripe.com", "api.resend.com"],
+        "protect_secrets": True,
+    },
+    "blast_radius": {
+        "workload": "host_4f2a9c…",
+        "mode": "protect",
+        "reachable": [
+            {"kind": "network", "target": "api.stripe.com", "via": "network.allow", "confidence": "exact"},
+            {"kind": "network", "target": "api.resend.com", "via": "network.allow", "confidence": "exact"},
+            {"kind": "path", "target": "/app", "via": "filesystem.read", "confidence": "exact"},
+            {"kind": "path", "target": "/app/uploads", "via": "filesystem.write", "confidence": "exact"},
+            {"kind": "process", "target": "/usr/bin/node", "via": "process.exec.allow", "confidence": "exact"},
+        ],
+        "contained": [
+            {"class": "shell execution", "reason": "no shell in process.exec.allow"},
+            {"class": "secret file reads", "reason": "protect_secrets on"},
+            {"class": "cloud metadata", "reason": "not in network.allow"},
+            {"class": "arbitrary egress", "reason": "network is allowlisted"},
+        ],
+    },
+}
+
 html = html.replace('<link rel="stylesheet" href="styles.css">', "<style>\n" + css + "\n</style>")
 html = html.replace(
     '<script src="app.js"></script>',

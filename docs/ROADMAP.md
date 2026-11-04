@@ -17,8 +17,13 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
 - [x] Competitive + incident research ([COMPETITIVE_RESEARCH.md](COMPETITIVE_RESEARCH.md))
 - [x] Attempt to disprove the product ([VALIDATION.md](VALIDATION.md))
 - [x] Differentiation + ICP + MVP defined
-- [ ] ICP validation interviews (self-hosted Docker / small SaaS)
-- [ ] Freeze the enforcement-tier design (Tier 0 Landlock+seccomp; Tier 1 eBPF-LSM)
+- [ ] ICP validation interviews (self-hosted Docker / small SaaS) — business
+      task, needs real users
+- [x] Freeze the enforcement-tier design — see
+      [ARCHITECTURE.md](ARCHITECTURE.md#enforcement-tier-design-frozen):
+      Tier 0 = Landlock (unprivileged, spawn-time); Tier 1 = eBPF-LSM
+      (`capable`, `bprm_check_security`, `file_open`, `socket_connect`),
+      cgroup-scoped and disarmed by default
 
 ## Milestone 1 — Extract/reuse the Warden runtime engine  ✅ done
 - [x] Vendor/adapt `policy`, `proxy`, `audit`, and `envfilter` into `engine/`
@@ -95,18 +100,21 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
 - [x] Never-promote classes become explicit denies; safe defaults
       (`protect_secrets: true`)
 - [x] `vorynex policy generate --from <events.jsonl> [--out <file>] [--sign-key <file>]`
-- [ ] Signing-key management / trust root (cloud-side, Milestone 7)
+- [x] Trust root: `vorynex policy pubkey` prints the public key to pin;
+      `vorynex policy verify --policy --sig --pubkey` checks a detached
+      signature; `vorynex exec --sig --pubkey` refuses an unverified policy
 
 ## Milestone 7 — Telemetry API  ✅ core done
 - [x] Local-first, size-bounded event spool with gap markers on overflow
 - [x] Resumable, outbound-only exporter (`engine/telemetry`); enforcement never
       depends on it
 - [x] Host identity (`hostid`) + enrollment + persisted export cursor
-- [x] `vorynex telemetry status | export --endpoint <url> [--token <t>] [--once]`
+- [x] `vorynex telemetry status | export --endpoint <url> [--token <t>] [--once] [--policy <file>]`
 - [x] Minimal cloud ingestion API: `POST /v1/enroll`, `POST /v1/events`
       (`cloud/api`, `cmd/vorynex-cloud`)
 - [ ] Real auth (per-host tokens, rotation), TLS, durable store (DB not JSONL)
-- [ ] Agent-enforced signing trust root (from Milestone 6)
+- [x] Agent-enforced signing trust root (Milestone 6): the agent verifies the
+      policy signature before it loads it
 
 ## Milestone 8 — Dashboard  ✅ core done
 - [x] Served by `vorynex-cloud` at `/` (static UI + `/v1` API)
@@ -120,8 +128,12 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
 - [x] Live updates: 15s poll, pauses when the tab is hidden or the operator is
       interacting; manual refresh
 - [x] Workload detail panel: mode, counts, last event, recent containment
-- [ ] Policies view (needs the agent to upload its effective policy)
-- [ ] Blast Radius view (Milestone 10)
+- [x] Policies view: the agent uploads its effective policy
+      (`telemetry export --policy <file>`); `POST|GET /v1/hosts/{id}/policy`
+      validates and stores it; the dashboard shows the rule set and a
+      control-plane-derived summary
+- [x] Blast Radius view: policy-derived when a policy is uploaded, else the
+      observed reach from telemetry
 
 ## Milestone 9 — Attack Trace  ✅ core done
 - [x] Derive traces from recorded events (`engine/trace`): `DENIED` (enforced)
@@ -131,8 +143,10 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
 - [x] CLI: `vorynex trace [--from <events.jsonl>] [--workload <id>] [--all]
       [--json] [--since <dur>] [--id <id>]`
 - [x] Dashboard: expandable trace on every contained event (native `<details>`)
-- [ ] Join the ingress HTTP request and process lineage (needs pid/ppid and
-      access logs; traces are currently marked `inferred`)
+- [x] Process lineage from fork/exec evidence (`clone`/`fork`/`execve`); a trace
+      becomes `exact` (e.g. `node → /bin/bash`) only when the lineage is proven,
+      otherwise it stays `inferred`
+- [ ] Join the ingress HTTP request (needs access logs at the edge)
 
 ## Milestone 10 — Blast Radius  ✅ core done
 - [x] `engine/blastradius`: derive reachable resources and contained classes
@@ -140,7 +154,7 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
 - [x] CLI: `vorynex blast-radius --policy <file> [--workload <name>] [--mode <mode>] [--json]`
 - [x] Dashboard panel: observed reach vs containment from telemetry
 - [x] Diff view: `blast-radius --policy <a> --compare <b>`
-- [ ] Policy-based dashboard view (needs the agent to upload its policy)
+- [x] Policy-based dashboard view (derived from the uploaded policy)
 - [ ] Graph view
 
 ## Milestone 11 — CVE correlation  ✅ core done

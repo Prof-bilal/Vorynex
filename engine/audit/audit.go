@@ -17,11 +17,17 @@ import (
 // Event is one attempted access observed by Warden.
 type Event struct {
 	Timestamp time.Time `json:"timestamp"`
-	Type      string    `json:"type"`     // file or network
-	Action    string    `json:"action"`   // open, connect, dns, ...
+	Type      string    `json:"type"`     // file, network, or process
+	Action    string    `json:"action"`   // open, connect, clone, execve, ...
 	Resource  string    `json:"resource"` // pathname or host[:port]
 	Allowed   bool      `json:"allowed"`
 	Reason    string    `json:"reason,omitempty"`
+	// PID is the process that made the call (strace -f), used to rebuild
+	// process lineage. Zero when the trace did not include a pid prefix.
+	PID int `json:"pid,omitempty"`
+	// Result is the raw syscall result (e.g. "1234" for a successful clone),
+	// which lets a trace link a child process to its parent.
+	Result string `json:"result,omitempty"`
 }
 
 // Logger serializes Events to a JSON Lines stream.  It is safe to share

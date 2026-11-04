@@ -75,3 +75,18 @@ func TestParseStraceLinePaddedPID(t *testing.T) {
 		t.Errorf("unexpected event: %+v", ev)
 	}
 }
+
+func TestParseStraceLineCarriesPIDAndResult(t *testing.T) {
+	ev, ok := ParseStraceLine(`1000  clone(child_stack=NULL, flags=CLONE_CHILD_CLEARTID) = 1001`)
+	if !ok {
+		t.Fatal("clone line was dropped")
+	}
+	if ev.Type != "process" || ev.PID != 1000 || ev.Result != "1001" {
+		t.Errorf("clone event = %+v", ev)
+	}
+
+	ev, ok = ParseStraceLine(`[pid 1001] openat(AT_FDCWD, "/etc/shadow", O_RDONLY) = -1 EACCES (Permission denied)`)
+	if !ok || ev.PID != 1001 || ev.Result == "" {
+		t.Errorf("openat event = %+v", ev)
+	}
+}
