@@ -138,9 +138,19 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
 - [ ] Live feed fetching (OSV/NVD/KEV APIs) and NVD CVSS enrichment
 - [ ] Dashboard CVE view (needs workload SBOM upload)
 
-## Milestone 12 — Emergency Shield
-- [ ] AI-proposes → deterministic-validation → simulate → observe → enforce
-      ([EMERGENCY_SHIELD.md](EMERGENCY_SHIELD.md))
+## Milestone 12 — Emergency Shield  ✅ core done
+- [x] `engine/shield`: propose containment from CVE matches (adds denies only,
+      never grants)
+- [x] Deterministic validation: schema, no shell/metadata/root grants, no
+      dropped denies, no new grants
+- [x] Simulation against recorded traffic: new dangerous denials vs benign
+      breakage, plus coverage gaps
+- [x] Verdict gate: `rejected` / `needs-review` / `approved`; never auto-applied
+- [x] CLI: `vorynex shield --lockfile <package-lock.json> --osv <file>
+      [--kev <file>] [--policy <base.yaml>] [--events <events.jsonl>]
+      [--out <candidate.yaml>] [--json]`
+- [ ] Live advisory ingestion and AI-drafted, advisory-specific rules
+- [ ] Automatic observe -> protect rollout orchestration via the control plane
 
 ## Milestone 13 — Private beta
 - [ ] Real self-hosted Docker/Node workloads

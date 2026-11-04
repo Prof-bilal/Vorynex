@@ -137,3 +137,26 @@ Clear messaging on every surface:
   [--workload <name>] [--json]`.
 - Not yet: live feed fetching, NVD CVSS enrichment, and turning a match into a
   **candidate containment** with the validation pipeline above (Milestone 12).
+
+## Emergency Shield implementation (M12)
+
+- `engine/shield` turns CVE matches into a **candidate containment policy**. It
+  only adds denies and safe defaults (shell/download exec denies,
+  `protect_secrets`, sensitive path denies) and **never grants anything**.
+- **Deterministic validation** rejects a candidate that grants a shell, allowlists
+  cloud metadata, grants filesystem root, drops an existing deny, or adds a new
+  grant.
+- **Simulation** replays recorded events through the base and candidate
+  policies: new denials of dangerous behavior are the goal, new denials of
+  anything else are breakage, and dangerous behavior neither policy denies is a
+  coverage gap.
+- **Verdict**: `rejected` (validation failed), `needs-review` (benign breakage),
+  or `approved` (may proceed to observe). Nothing is applied automatically.
+- CLI: `vorynex shield --lockfile <package-lock.json> --osv <file> [--kev <file>]
+  [--policy <base.yaml>] [--events <events.jsonl>] [--out <candidate.yaml>]
+  [--json]`.
+
+The workflow remains: AI proposes -> deterministic validation -> simulation ->
+observe -> confidence -> enforcement. The current build ships deterministic
+proposal and validation; AI-drafted, advisory-specific rules and automatic
+rollout are the remaining items.

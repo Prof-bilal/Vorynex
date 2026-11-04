@@ -41,6 +41,8 @@ Commands:
                 vorynex blast-radius --policy <file> [--workload <name>] [--json]
   cve         Correlate known vulnerabilities with a workload's packages
                 vorynex cve scan --lockfile <package-lock.json> --osv <file> [--kev <file>]
+  shield      Propose, validate, and simulate CVE containment
+                vorynex shield --lockfile <package-lock.json> --osv <file> [--events <events.jsonl>]
   version     Print the version
 
 See docs/ARCHITECTURE.md.`
@@ -95,6 +97,11 @@ func main() {
 		}
 	case "cve":
 		if err := runCve(args[1:]); err != nil {
+			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
+			os.Exit(1)
+		}
+	case "shield":
+		if err := runShield(args[1:]); err != nil {
 			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
 			os.Exit(1)
 		}
