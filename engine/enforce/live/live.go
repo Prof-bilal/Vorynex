@@ -147,21 +147,28 @@ func (e *UnavailableError) Error() string {
 	return "tier 1 unavailable: " + strings.Join(e.Reasons, "; ")
 }
 
-// Attach would load the BPF-LSM programs. It fails honestly unless the host can
-// enforce and a compiled BPF object is supplied. The loader is intentionally
-// not included in this build.
-func Attach(c Capabilities, bpfObject string) error {
+// Session is an attached, disarmed Tier 1 enforcement session.
+type Session interface {
+	// Arm targets one cgroup and denies one capability for it.
+	Arm(cgroupID uint64, capability int) error
+	// Disarm makes the attached program inert again.
+	Disarm() error
+	// Close detaches the program and releases resources.
+	Close() error
+}
+
+// Attach loads the compiled BPF-LSM object and attaches it DISARMED. It fails
+// honestly when the host cannot enforce or the object is missing.
+func Attach(c Capabilities, bpfObject string) (Session, error) {
 	if !c.Available {
-		return &UnavailableError{Reasons: c.Reasons}
+		return nil, &UnavailableError{Reasons: c.Reasons}
 	}
 	if bpfObject == "" {
-		return &UnavailableError{Reasons: []string{
-			"no BPF object supplied; build engine/enforce/live/bpf/live.bpf.c with clang and pass --bpf-object",
+		return nil, &UnavailableError{Reasons: []string{
+			"no BPF object supplied; build it with `make bpf` and pass its path",
 		}}
 	}
-	return &UnavailableError{Reasons: []string{
-		"the BPF-LSM loader is not part of this build; it must be validated with CAP_BPF before shipping",
-	}}
+	return attachObject(bpfObject)
 }
 
 func readFile(path string) string {

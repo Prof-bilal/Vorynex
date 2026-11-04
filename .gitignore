@@ -38,3 +38,6 @@ evidence/
 
 # Local control-plane state
 /vorynex-cloud/
+
+# Compiled BPF objects
+*.bpf.o

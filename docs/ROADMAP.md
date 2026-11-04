@@ -66,16 +66,20 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
 - [ ] File-granular exec control via Tier 1 (Landlock exec control is
       directory-scoped)
 
-## Milestone 5 — Tier 1 live enforcement  ◐ partial
+## Milestone 5 — Tier 1 live enforcement  ◐ partial (capability hook validated)
 - [x] Capability detection: kernel, LSM list, BTF, CAP_BPF/CAP_PERFMON, with
       honest reasons (`engine/enforce/live`); `vorynex live status`
 - [x] Deterministic enforcement plan from a policy — `bprm_check_security`,
       `file_open`, `socket_connect`, `capable` (`vorynex live plan --policy`)
-- [x] `doctor` reports Tier 1 availability from real capabilities, not guesses
-- [ ] BPF-LSM loader — requires root/CAP_BPF and a clang-built object; **not
-      shipped untested**. This is the remaining work.
+- [x] **BPF-LSM loader** (`cilium/ebpf`): load + attach **disarmed**, arm one
+      cgroup, deny a capability, disarm, detach (`engine/enforce/live/bpf`)
+- [x] Privileged integration test: `unshare(CLONE_NEWNS)` denied inside the
+      armed cgroup, unaffected outside it, restored after disarm
+- [x] `vorynex live attach --object <path> --cgroup <path> [--cap N] [--seconds N]`
+- [ ] Path-based hooks — `bprm_check_security` (exec), `file_open` (paths),
+      `socket_connect` (egress); need CO-RE via `vmlinux.h` (bpftool)
 - [ ] cgroups v2 anchoring and nftables egress
-- [ ] Verify no-workload-kill by default; no-outage containment
+- [ ] No-workload-kill verification and rollback orchestration
 
 ## Milestone 6 — Policy generation  ✅ core done
 - [x] Turn the observed baseline into a reviewable policy (`engine/policygen`)

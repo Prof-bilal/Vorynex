@@ -87,13 +87,13 @@ func TestPlan(t *testing.T) {
 }
 
 func TestAttachFailsHonestly(t *testing.T) {
-	if err := Attach(Capabilities{Available: false, Reasons: []string{"no bpf"}}, ""); err == nil {
+	if _, err := Attach(Capabilities{Available: false, Reasons: []string{"no bpf"}}, ""); err == nil {
 		t.Fatal("expected an error when unavailable")
 	}
-	if err := Attach(Capabilities{Available: true}, ""); err == nil {
+	if _, err := Attach(Capabilities{Available: true}, ""); err == nil {
 		t.Fatal("expected an error when no BPF object is supplied")
 	}
-	if err := Attach(Capabilities{Available: true}, "/tmp/live.bpf.o"); err == nil {
-		t.Fatal("expected an error while the loader is not shipped")
+	if _, err := Attach(Capabilities{Available: true}, "/nonexistent/live.bpf.o"); err == nil {
+		t.Fatal("expected an error for a missing BPF object")
 	}
 }

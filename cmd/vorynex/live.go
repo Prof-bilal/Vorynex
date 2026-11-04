@@ -2,24 +2,31 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
+	"strconv"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/vorynex/vorynex/engine/enforce/live"
 	"github.com/vorynex/vorynex/engine/policy"
 )
 
-// runLive implements `vorynex live status|plan`.
+// runLive implements `vorynex live status|plan|attach`.
 func runLive(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: vorynex live <status|plan> [--policy <file>]")
+		return fmt.Errorf("usage: vorynex live <status|plan|attach> [...]")
 	}
 	switch args[0] {
 	case "status":
 		return liveStatus()
 	case "plan":
 		return livePlan(args[1:])
+	case "attach":
+		return liveAttach(args[1:])
 	default:
-		return fmt.Errorf("unknown live subcommand %q (want status or plan)", args[0])
+		return fmt.Errorf("unknown live subcommand %q (want status, plan, or attach)", args[0])
 	}
 }
 
@@ -39,6 +46,7 @@ func liveStatus() error {
 		}
 		fmt.Println("\nFallback: Tier 0 spawn-time enforcement remains in effect.")
 	}
+	fmt.Println("\nBPF object: build with `make bpf` (engine/enforce/live/bpf/live.bpf.o).")
 	return nil
 }
 
@@ -68,4 +76,97 @@ func livePlan(args []string) error {
 		fmt.Println("      Tier 0 spawn-time enforcement still applies. See `vorynex live status`.")
 	}
 	return nil
+}
+
+// liveAttach loads the BPF object, attaches it disarmed, and (when a cgroup is
+// given) arms it for that cgroup for a bounded time. It always disarms and
+// detaches before returning.
+func liveAttach(args []string) error {
+	var object, cgroup string
+	capability := 21 // CAP_SYS_ADMIN
+	seconds := 10
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--object":
+			if i+1 < len(args) {
+				i++
+				object = args[i]
+			}
+		case "--cgroup":
+			if i+1 < len(args) {
+				i++
+				cgroup = args[i]
+			}
+		case "--cap":
+			if i+1 < len(args) {
+				i++
+				if n, err := strconv.Atoi(args[i]); err == nil {
+					capability = n
+				}
+			}
+		case "--seconds":
+			if i+1 < len(args) {
+				i++
+				if n, err := strconv.Atoi(args[i]); err == nil && n > 0 {
+					seconds = n
+				}
+			}
+		default:
+			return fmt.Errorf("unknown flag %q", args[i])
+		}
+	}
+	if object == "" {
+		return fmt.Errorf("--object <path> is required; build it with `make bpf`")
+	}
+
+	caps := live.Detect()
+	if !caps.Available {
+		for _, r := range caps.Reasons {
+			fmt.Fprintf(os.Stderr, "  - %s\n", r)
+		}
+		return fmt.Errorf("tier 1 unavailable on this host")
+	}
+
+	s, err := live.Attach(caps, object)
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+	fmt.Println("attached (disarmed)")
+
+	if cgroup == "" {
+		fmt.Println("no --cgroup given; detaching with no enforcement applied")
+		return nil
+	}
+
+	id, err := resolveCgroupID(cgroup)
+	if err != nil {
+		return err
+	}
+	if err := s.Arm(id, capability); err != nil {
+		return err
+	}
+	fmt.Printf("armed: denying capability %d for cgroup %d\n", capability, id)
+	fmt.Printf("running for %ds (Ctrl-C to stop early)\n", seconds)
+
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sig)
+	select {
+	case <-time.After(time.Duration(seconds) * time.Second):
+	case <-sig:
+	}
+
+	if err := s.Disarm(); err != nil {
+		return err
+	}
+	fmt.Println("disarmed; detaching")
+	return nil
+}
+
+func resolveCgroupID(arg string) (uint64, error) {
+	if v, err := strconv.ParseUint(arg, 10, 64); err == nil {
+		return v, nil
+	}
+	return live.CgroupID(arg)
 }
