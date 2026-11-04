@@ -382,6 +382,85 @@ function detailStat(label, node) {
   ]);
 }
 
+function isWriteAction(a) {
+  return ["creat", "unlink", "unlinkat", "rename", "renameat", "renameat2", "mkdir", "mkdirat", "rmdir", "chmod", "fchmodat", "chown", "fchownat"].includes(a);
+}
+
+function isSecretPath(base, p) {
+  if ([".env", "id_rsa", "id_ed25519", "credentials", ".npmrc", ".pypirc", ".dockercfg", ".netrc", ".pgpass", ".htpasswd"].includes(base)) return true;
+  if (base.startsWith(".env.")) return true;
+  if ([".pem", ".key", ".p12", ".pfx"].some((s) => base.endsWith(s))) return true;
+  return ["/.ssh/", "/.aws/", "/.kube/", "/.docker/", "/.gnupg/"].some((f) => p.includes(f));
+}
+
+function behaviorOf(ev) {
+  const action = String(ev.action || "");
+  const resource = String(ev.resource || "");
+  const base = resource.split("/").pop();
+  if (action === "execve" || action === "execveat") {
+    const shells = ["sh", "bash", "dash", "zsh", "ksh", "csh", "tcsh", "fish", "ash", "busybox"];
+    return shells.includes(base) ? "shell execution" : "unexpected process execution";
+  }
+  if (ev.type === "network") {
+    const host = resource.replace(/:\d+$/, "");
+    if (host === "169.254.169.254" || host === "169.254.170.2") return "cloud metadata access";
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return "arbitrary egress";
+    return "network access";
+  }
+  if (isSecretPath(base, resource)) return "credential access";
+  return isWriteAction(action) ? "filesystem write" : "filesystem access";
+}
+
+function policyOf(ev) {
+  const action = String(ev.action || "");
+  if (action === "execve" || action === "execveat") return "process.exec";
+  if (ev.type === "network") return "network.connect";
+  if (isWriteAction(action)) return "filesystem.write";
+  return "filesystem.read";
+}
+
+function nextActionsFor(behavior) {
+  switch (behavior) {
+    case "shell execution":
+      return ["Review the request that reached this workload", "Fix the command-injection sink", "Keep the rule"];
+    case "credential access":
+      return ["Rotate any credentials this workload can reach", "Move secrets to a secret manager", "Keep the rule"];
+    case "cloud metadata access":
+      return ["Require IMDSv2 with a hop limit where possible", "Keep the rule"];
+    case "arbitrary egress":
+      return ["Add the legitimate destination to network.allow", "Keep the rule"];
+    default:
+      return ["Review the access", "Keep the rule"];
+  }
+}
+
+function traceField(k, v) {
+  return el("div", { class: "trace-f" }, [el("dt", { text: k }), el("dd", { text: v })]);
+}
+
+function traceDetails(ev) {
+  const behavior = behaviorOf(ev);
+  const policy = policyOf(ev);
+  return el("details", { class: "trace" }, [
+    el("summary", {}, [
+      el("span", { class: "trace-sum", text: "Trace · " + behavior }),
+      el("span", { class: "trace-pol mono", text: policy }),
+    ]),
+    el("div", { class: "trace-body" }, [
+      el("dl", { class: "trace-fields" }, [
+        traceField("Result", "DENIED"),
+        traceField("Policy", policy),
+        traceField("Behavior", behavior),
+        traceField("Confidence", "inferred"),
+      ]),
+      el("div", { class: "trace-next" }, [
+        el("span", { class: "trace-k", text: "Next" }),
+        el("ul", {}, nextActionsFor(behavior).map((a) => el("li", { text: a }))),
+      ]),
+    ]),
+  ]);
+}
+
 function renderEvents() {
   const body = $("#ev-body");
   body.textContent = "";
@@ -432,6 +511,8 @@ function renderEvents() {
         }),
       ])
     );
+
+    if (contained) li.append(traceDetails(ev));
 
     list.append(li);
   }

@@ -195,6 +195,17 @@ func WouldBlock(events []audit.Event) []Blocked {
 	return out
 }
 
+// Classify exposes the event classifier for other packages (e.g. trace).
+// dangerous is true for the never-promote classes; reason explains why.
+func Classify(e audit.Event) (kind string, target string, dangerous bool, reason string) {
+	k, t, ok := classify(e)
+	if !ok {
+		return "", "", false, ""
+	}
+	safe, why := danger(e)
+	return string(k), t, !safe, why
+}
+
 func classify(e audit.Event) (Kind, string, bool) {
 	switch {
 	case e.Type == "network":

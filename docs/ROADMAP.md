@@ -108,9 +108,16 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
 - [ ] Policies view (needs the agent to upload its effective policy)
 - [ ] Blast Radius view (Milestone 10)
 
-## Milestone 9 — Attack Trace
-- [ ] Render one event as a plain-English containment story
-      ([ATTACK_TRACE.md](ATTACK_TRACE.md))
+## Milestone 9 — Attack Trace  ✅ core done
+- [x] Derive traces from recorded events (`engine/trace`): `DENIED` (enforced)
+      and `WOULD_DENY` (observed)
+- [x] Plain-English fields: attempt, policy, result, behavior, reason,
+      confidence, next actions
+- [x] CLI: `vorynex trace [--from <events.jsonl>] [--workload <id>] [--all]
+      [--json] [--since <dur>] [--id <id>]`
+- [x] Dashboard: expandable trace on every contained event (native `<details>`)
+- [ ] Join the ingress HTTP request and process lineage (needs pid/ppid and
+      access logs; traces are currently marked `inferred`)
 
 ## Milestone 10 — Blast Radius
 - [ ] Derive the reach graph from real policies/capabilities

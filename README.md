@@ -109,6 +109,9 @@ go run ./cmd/vorynex observe -- node -e 'require("fs").readFileSync("/etc/hostna
 
 # push the recorded events to the control plane
 go run ./cmd/vorynex telemetry export --endpoint http://127.0.0.1:8787 --once
+
+# render the most recent containment as a plain-English attack trace
+go run ./cmd/vorynex trace
 ```
 
 Then open <http://127.0.0.1:8787> in a browser.

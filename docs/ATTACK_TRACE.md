@@ -102,3 +102,18 @@ vorynex trace <id> --raw           # underlying audit events
    like the product.
 
 Related: [BLAST_RADIUS.md](BLAST_RADIUS.md), [LEARNING_ENGINE.md](LEARNING_ENGINE.md).
+
+## Implementation status (MVP)
+
+- `engine/trace` derives traces from recorded events. Contained events
+  (`EACCES`/`EPERM`) become `DENIED`; dangerous access that was not enforced
+  becomes `WOULD_DENY`. Harmless failed syscalls (`ENOENT`) are ignored.
+- `vorynex trace [--from <events.jsonl>] [--workload <id>] [--all] [--json]
+  [--since <dur>] [--id <id>]` renders the CLI story; it reads audit events,
+  the local telemetry spool, or the cloud store.
+- The dashboard renders the same trace as an expandable section on every
+  contained event.
+- **Confidence is `inferred` today.** strace events carry no pid/parent and no
+  ingress request, so the chain is `workload → action → target`. Joining the
+  HTTP request and process lineage is the remaining work (needs pid/ppid and
+  access logs). The trace says so rather than inventing a hop.

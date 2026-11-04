@@ -257,6 +257,25 @@ main { padding: 20px 28px 40px; max-width: 1180px; }
 .detail-list li { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px; }
 .detail-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--line); }
 
+/* ---- attack trace (expandable) ---- */
+.event > .trace { grid-column: 1 / -1; margin-top: 6px; border-top: 1px solid var(--line); padding-top: 8px; }
+.trace summary {
+  cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; font-size: 12.5px; color: var(--ink-2);
+}
+.trace summary::-webkit-details-marker { display: none; }
+.trace summary::before { content: "▸"; color: var(--ink-3); margin-right: 6px; }
+.trace[open] summary::before { content: "▾"; }
+.trace-sum { font-weight: 600; }
+.trace-pol { color: var(--ink-3); font-size: 11.5px; }
+.trace-body { padding: 8px 0 2px 18px; }
+.trace-fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 14px; margin: 0 0 8px; }
+.trace-f { display: flex; flex-direction: column; gap: 2px; }
+.trace-f dt { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-3); }
+.trace-f dd { margin: 0; font-size: 12.5px; }
+.trace-next ul { margin: 4px 0 0; padding-left: 16px; color: var(--ink-2); font-size: 12.5px; }
+.trace-next li { margin: 2px 0; }
+
 /* ---- states ---- */
 .skeleton-rows { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
 .skeleton { height: 34px; border-radius: 4px; background: linear-gradient(90deg, var(--sunken), #2a2620, var(--sunken)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
@@ -299,6 +318,7 @@ main { padding: 20px 28px 40px; max-width: 1180px; }
   }
   .event { grid-template-columns: 1fr; gap: 2px; }
   .detail-grid { grid-template-columns: 1fr 1fr; }
+  .trace-fields { grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 520px) {
@@ -434,7 +454,7 @@ main { padding: 20px 28px 40px; max-width: 1180px; }
   </div>
 </div>
 
-<script>window.__VORYNEX_DEMO__ = {"hosts": [{"host_id": "host_4f2a9c\u2026", "hostname": "payments", "mode": "protect", "registered_at": "2026-11-01T10:52:53.748542+00:00"}, {"host_id": "host_8b1e77\u2026", "hostname": "billing", "mode": "observe", "registered_at": "2026-11-03T10:52:53.748542+00:00"}], "events": [{"host_id": "host_4f2a9c\u2026", "record": {"seq": 190, "event": {"timestamp": "2026-11-04T10:52:41.748542Z", "type": "file", "action": "execve", "resource": "/bin/bash", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 189, "event": {"timestamp": "2026-11-04T10:52:19.748542Z", "type": "network", "action": "connect", "resource": "169.254.169.254:80", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 188, "event": {"timestamp": "2026-11-04T10:52:02.748542Z", "type": "file", "action": "openat", "resource": "/app/.env", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 187, "event": {"timestamp": "2026-11-04T10:51:43.748542Z", "type": "network", "action": "connect", "resource": "api.stripe.com:443", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 186, "event": {"timestamp": "2026-11-04T10:51:17.748542Z", "type": "file", "action": "openat", "resource": "/app/server.js", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 185, "event": {"timestamp": "2026-11-04T10:50:53.748542Z", "type": "file", "action": "openat", "resource": "/app/.next/cache/chunk.mo", "allowed": false, "reason": "-1 ENOENT (No such file or directory)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 184, "event": {"timestamp": "2026-11-04T10:50:32.748542Z", "type": "file", "action": "openat", "resource": "/app/node_modules/next/package.json", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 88, "event": {"timestamp": "2026-11-04T10:52:31.748542Z", "type": "file", "action": "execve", "resource": "/usr/bin/curl", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 87, "event": {"timestamp": "2026-11-04T10:51:53.748542Z", "type": "network", "action": "connect", "resource": "api.resend.com:443", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 86, "event": {"timestamp": "2026-11-04T10:51:25.748542Z", "type": "file", "action": "openat", "resource": "/app/config.yaml", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 85, "event": {"timestamp": "2026-11-04T10:50:43.748542Z", "type": "file", "action": "openat", "resource": "/app/secrets/db.pem", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}]};</script>
+<script>window.__VORYNEX_DEMO__ = {"hosts": [{"host_id": "host_4f2a9c\u2026", "hostname": "payments", "mode": "protect", "registered_at": "2026-11-01T11:01:50.013664+00:00"}, {"host_id": "host_8b1e77\u2026", "hostname": "billing", "mode": "observe", "registered_at": "2026-11-03T11:01:50.013664+00:00"}], "events": [{"host_id": "host_4f2a9c\u2026", "record": {"seq": 190, "event": {"timestamp": "2026-11-04T11:01:38.013664Z", "type": "file", "action": "execve", "resource": "/bin/bash", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 189, "event": {"timestamp": "2026-11-04T11:01:16.013664Z", "type": "network", "action": "connect", "resource": "169.254.169.254:80", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 188, "event": {"timestamp": "2026-11-04T11:00:59.013664Z", "type": "file", "action": "openat", "resource": "/app/.env", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 187, "event": {"timestamp": "2026-11-04T11:00:40.013664Z", "type": "network", "action": "connect", "resource": "api.stripe.com:443", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 186, "event": {"timestamp": "2026-11-04T11:00:14.013664Z", "type": "file", "action": "openat", "resource": "/app/server.js", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 185, "event": {"timestamp": "2026-11-04T10:59:50.013664Z", "type": "file", "action": "openat", "resource": "/app/.next/cache/chunk.mo", "allowed": false, "reason": "-1 ENOENT (No such file or directory)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 184, "event": {"timestamp": "2026-11-04T10:59:29.013664Z", "type": "file", "action": "openat", "resource": "/app/node_modules/next/package.json", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 88, "event": {"timestamp": "2026-11-04T11:01:28.013664Z", "type": "file", "action": "execve", "resource": "/usr/bin/curl", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 87, "event": {"timestamp": "2026-11-04T11:00:50.013664Z", "type": "network", "action": "connect", "resource": "api.resend.com:443", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 86, "event": {"timestamp": "2026-11-04T11:00:22.013664Z", "type": "file", "action": "openat", "resource": "/app/config.yaml", "allowed": true, "reason": ""}}}, {"host_id": "host_4f2a9c\u2026", "record": {"seq": 85, "event": {"timestamp": "2026-11-04T10:59:40.013664Z", "type": "file", "action": "openat", "resource": "/app/secrets/db.pem", "allowed": false, "reason": "-1 EACCES (Permission denied)"}}}]};</script>
 <script>
 // Vorynex dashboard (M8).
 // Reads the control-plane API and renders hosts, protection mode, a workload
@@ -820,6 +840,85 @@ function detailStat(label, node) {
   ]);
 }
 
+function isWriteAction(a) {
+  return ["creat", "unlink", "unlinkat", "rename", "renameat", "renameat2", "mkdir", "mkdirat", "rmdir", "chmod", "fchmodat", "chown", "fchownat"].includes(a);
+}
+
+function isSecretPath(base, p) {
+  if ([".env", "id_rsa", "id_ed25519", "credentials", ".npmrc", ".pypirc", ".dockercfg", ".netrc", ".pgpass", ".htpasswd"].includes(base)) return true;
+  if (base.startsWith(".env.")) return true;
+  if ([".pem", ".key", ".p12", ".pfx"].some((s) => base.endsWith(s))) return true;
+  return ["/.ssh/", "/.aws/", "/.kube/", "/.docker/", "/.gnupg/"].some((f) => p.includes(f));
+}
+
+function behaviorOf(ev) {
+  const action = String(ev.action || "");
+  const resource = String(ev.resource || "");
+  const base = resource.split("/").pop();
+  if (action === "execve" || action === "execveat") {
+    const shells = ["sh", "bash", "dash", "zsh", "ksh", "csh", "tcsh", "fish", "ash", "busybox"];
+    return shells.includes(base) ? "shell execution" : "unexpected process execution";
+  }
+  if (ev.type === "network") {
+    const host = resource.replace(/:\d+$/, "");
+    if (host === "169.254.169.254" || host === "169.254.170.2") return "cloud metadata access";
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return "arbitrary egress";
+    return "network access";
+  }
+  if (isSecretPath(base, resource)) return "credential access";
+  return isWriteAction(action) ? "filesystem write" : "filesystem access";
+}
+
+function policyOf(ev) {
+  const action = String(ev.action || "");
+  if (action === "execve" || action === "execveat") return "process.exec";
+  if (ev.type === "network") return "network.connect";
+  if (isWriteAction(action)) return "filesystem.write";
+  return "filesystem.read";
+}
+
+function nextActionsFor(behavior) {
+  switch (behavior) {
+    case "shell execution":
+      return ["Review the request that reached this workload", "Fix the command-injection sink", "Keep the rule"];
+    case "credential access":
+      return ["Rotate any credentials this workload can reach", "Move secrets to a secret manager", "Keep the rule"];
+    case "cloud metadata access":
+      return ["Require IMDSv2 with a hop limit where possible", "Keep the rule"];
+    case "arbitrary egress":
+      return ["Add the legitimate destination to network.allow", "Keep the rule"];
+    default:
+      return ["Review the access", "Keep the rule"];
+  }
+}
+
+function traceField(k, v) {
+  return el("div", { class: "trace-f" }, [el("dt", { text: k }), el("dd", { text: v })]);
+}
+
+function traceDetails(ev) {
+  const behavior = behaviorOf(ev);
+  const policy = policyOf(ev);
+  return el("details", { class: "trace" }, [
+    el("summary", {}, [
+      el("span", { class: "trace-sum", text: "Trace · " + behavior }),
+      el("span", { class: "trace-pol mono", text: policy }),
+    ]),
+    el("div", { class: "trace-body" }, [
+      el("dl", { class: "trace-fields" }, [
+        traceField("Result", "DENIED"),
+        traceField("Policy", policy),
+        traceField("Behavior", behavior),
+        traceField("Confidence", "inferred"),
+      ]),
+      el("div", { class: "trace-next" }, [
+        el("span", { class: "trace-k", text: "Next" }),
+        el("ul", {}, nextActionsFor(behavior).map((a) => el("li", { text: a }))),
+      ]),
+    ]),
+  ]);
+}
+
 function renderEvents() {
   const body = $("#ev-body");
   body.textContent = "";
@@ -870,6 +969,8 @@ function renderEvents() {
         }),
       ])
     );
+
+    if (contained) li.append(traceDetails(ev));
 
     list.append(li);
   }

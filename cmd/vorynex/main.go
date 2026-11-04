@@ -36,6 +36,7 @@ Commands:
   protect     Enable high-confidence enforcement (Milestone 4)
   status      Show current mode, effective policy, and recent events
   trace       Show a human-readable attack trace
+                vorynex trace [--from <events.jsonl>] [--workload <id>] [--all] [--json]
   version     Print the version
 
 See docs/ARCHITECTURE.md.`
@@ -75,6 +76,11 @@ func main() {
 		}
 	case "telemetry":
 		if err := runTelemetry(args[1:]); err != nil {
+			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
+			os.Exit(1)
+		}
+	case "trace":
+		if err := runTrace(args[1:]); err != nil {
 			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
 			os.Exit(1)
 		}
