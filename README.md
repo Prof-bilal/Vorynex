@@ -92,6 +92,39 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ---
 
+## The app (`web/`)
+
+The product UI is a **Next.js** app: the marketing site, auth, and the fleet
+dashboard in one deploy.
+
+| Route | What it is |
+|---|---|
+| `/` | Landing page (how it works, capability facts, FAQ) |
+| `/login`, `/signup` | Real auth via **Supabase** (email + password, GitHub/Google OAuth) |
+| `/dashboard` | Fleet overview, protection mode, containment timeline |
+| `/dashboard/hosts/[id]` | Effective policy, blast radius, known CVEs, events, mode control |
+| `/dashboard/settings` | Account, control plane, agent enrollment |
+
+```bash
+cd web
+cp .env.example .env.local     # Supabase + control plane values
+npm install --include=dev      # devDependencies are required for the build
+npm run dev                    # http://localhost:3000
+```
+
+The browser never holds the control-plane token: server components read the Go
+control plane directly and mutations go through `/api/control/*` after an auth
+check. See [`web/README.md`](web/README.md).
+
+**Supabase is also the durable store (M7).** With `SUPABASE_URL` and
+`SUPABASE_SERVICE_ROLE_KEY` set, `vorynex-cloud` mirrors hosts (with their
+effective policy) and ingested events into Postgres via PostgREST —
+best-effort, so a Supabase outage never affects ingestion or enforcement.
+Without it, the control plane uses local JSONL files. Schema:
+[`web/supabase/schema.sql`](web/supabase/schema.sql).
+
+---
+
 ## Try it locally
 
 The control plane serves the API **and** the dashboard, so start it first and

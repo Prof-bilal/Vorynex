@@ -116,12 +116,21 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
       events/policy/SBOM; a host token cannot act for another host or as admin;
       rotation via `POST /v1/hosts/{id}/rotate-token` (old token dies instantly)
 - [x] TLS: `--tls-cert`/`--tls-key` (or terminate TLS at a reverse proxy)
-- [ ] Durable store (a DB instead of JSONL files) for multi-node deployments
+- [x] Durable store: Supabase Postgres via PostgREST (`SUPABASE_URL` +
+      `SUPABASE_SERVICE_ROLE_KEY`); hosts (with their effective policy) and
+      events are mirrored best-effort, so a Supabase outage cannot affect
+      ingestion or enforcement. JSONL remains the local default.
+      Schema: [`web/supabase/schema.sql`](../web/supabase/schema.sql)
 - [x] Agent-enforced signing trust root (Milestone 6): the agent verifies the
       policy signature before it loads it
 
 ## Milestone 8 — Dashboard  ✅ core done
-- [x] Served by `vorynex-cloud` at `/` (static UI + `/v1` API)
+- [x] **Product app in `web/` (Next.js)**: landing at `/`, auth at
+      `/login` + `/signup` (Supabase), and the dashboard at `/dashboard`
+      (fleet, mode control, containment timeline, per-host policy, blast radius,
+      CVEs). The browser never holds the control-plane token.
+- [x] Served by `vorynex-cloud` at `/` (static UI + `/v1` API) — kept as a
+      dependency-free fallback dashboard
 - [x] Workload list with **persisted** protection mode
       (`GET /v1/hosts`, `POST /v1/hosts/{id}/mode`)
 - [x] Containment event timeline: contained vs allowed, host filter,

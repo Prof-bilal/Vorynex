@@ -6,10 +6,12 @@ package api
 
 import (
 	"bufio"
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -54,6 +56,45 @@ type Store struct {
 	policies map[string]string
 	desired  map[string]RolloutState
 	sboms    map[string]json.RawMessage
+	mirror   *SupabaseMirror
+}
+
+// EnableSupabase attaches a durable Postgres mirror. Writes stay best-effort.
+func (st *Store) EnableSupabase(m *SupabaseMirror) {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	st.mirror = m
+}
+
+func (st *Store) mirrorWrite(table, onConflict string, rows any) {
+	if st.mirror == nil {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := st.mirror.upsert(ctx, table, onConflict, rows); err != nil {
+			log.Printf("supabase mirror: %v", err)
+		}
+	}()
+}
+
+// mirrorHostLocked upserts one host row (including its effective policy).
+// Callers must hold st.mu.
+func (st *Store) mirrorHostLocked(id string) {
+	if st.mirror == nil {
+		return
+	}
+	h, ok := st.hosts[id]
+	if !ok {
+		return
+	}
+	st.mirrorWrite("hosts", "id", supabaseHostRow{
+		ID:         h.ID,
+		Hostname:   h.Hostname,
+		Mode:       h.Mode,
+		PolicyYAML: st.policies[id],
+	})
 }
 
 // RolloutState is the desired state the control plane wants a host to run.
@@ -140,6 +181,7 @@ func (st *Store) RegisterHost(id, hostname string) Host {
 	}
 	st.hosts[id] = h
 	st.saveHostsLocked()
+	st.mirrorHostLocked(id)
 	return h
 }
 
@@ -154,6 +196,7 @@ func (st *Store) SetMode(id, mode string) bool {
 	h.Mode = mode
 	st.hosts[id] = h
 	st.saveHostsLocked()
+	st.mirrorHostLocked(id)
 	return true
 }
 
@@ -301,6 +344,7 @@ func (st *Store) SetPolicy(hostID, yaml string) {
 	defer st.mu.Unlock()
 	st.policies[hostID] = yaml
 	st.savePoliciesLocked()
+	st.mirrorHostLocked(hostID)
 }
 
 // GetPolicy returns a host's uploaded policy.
@@ -335,6 +379,7 @@ func (st *Store) AppendRecords(hostID string, records []telemetry.Record) (int, 
 	}
 	defer f.Close()
 	n := 0
+	var rows []supabaseEventRow
 	for _, r := range records {
 		b, err := json.Marshal(StoredEvent{Host: hostID, Record: r})
 		if err != nil {
@@ -343,7 +388,20 @@ func (st *Store) AppendRecords(hostID string, records []telemetry.Record) (int, 
 		if _, err := f.Write(append(b, '\n')); err != nil {
 			return n, err
 		}
+		rows = append(rows, supabaseEventRow{
+			HostID:   hostID,
+			Seq:      r.Seq,
+			TS:       r.Event.Timestamp,
+			Type:     r.Event.Type,
+			Action:   r.Event.Action,
+			Resource: r.Event.Resource,
+			Allowed:  r.Event.Allowed,
+			Reason:   r.Event.Reason,
+		})
 		n++
+	}
+	if len(rows) > 0 {
+		st.mirrorWrite("events", "", rows)
 	}
 	return n, nil
 }

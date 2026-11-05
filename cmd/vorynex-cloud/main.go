@@ -20,7 +20,14 @@ func main() {
 	tlsKey := flag.String("tls-key", "", "TLS private key file")
 	flag.Parse()
 
-	apiHandler := api.New(*token, api.NewStore(*store)).Handler()
+	eventStore := api.NewStore(*store)
+	if mirror := api.NewSupabaseMirrorFromEnv(); mirror != nil {
+		eventStore.EnableSupabase(mirror)
+		log.Printf("supabase mirror enabled: %s (durable fleet state in Postgres)", mirror.Endpoint())
+	} else {
+		log.Printf("supabase mirror disabled (set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to persist fleet state in Postgres)")
+	}
+	apiHandler := api.New(*token, eventStore).Handler()
 
 	mux := http.NewServeMux()
 	mux.Handle("/v1/", apiHandler)

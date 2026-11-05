@@ -1,4 +1,4 @@
-.PHONY: build test vet fmt ci lab bpf bpf-test clean
+.PHONY: build test vet fmt ci lab bpf bpf-test context clean
 
 build:
 	go build ./...
@@ -29,6 +29,12 @@ bpf-test: bpf
 # needs go + bwrap + strace. See docs/SECURITY_TESTING.md.
 lab:
 	cd tests/security-lab && ./run-lab.sh
+
+# Refresh the local RepoSpine context index used by AI agents (gitignored).
+# Install once: npm i -g repospine-cli
+context:
+	@command -v atlas >/dev/null 2>&1 || { echo "atlas not installed — run: npm i -g repospine-cli"; exit 1; }
+	atlas update --repo $(CURDIR)
 
 clean:
 	go clean ./...

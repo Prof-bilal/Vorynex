@@ -24,6 +24,26 @@ jobs:
       - name: test
         run: go test ./...
 
+  # The Next.js app (landing + auth + dashboard). Typechecks and builds; the
+  # auth/control-plane env vars are intentionally absent, which is a supported
+  # state (pages render with setup notices).
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: install
+        run: npm install --include=dev --no-audit --no-fund
+      - name: typecheck
+        run: npm run typecheck
+      - name: build
+        run: npm run build
+
   # Tier 0 (Landlock) enforcement validation. Runs the security lab under the
   # Vorynex spawn-time engine on the CI kernel and asserts all seven attacks are
   # contained. See docs/SECURITY_TESTING.md.

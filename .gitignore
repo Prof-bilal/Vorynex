@@ -21,6 +21,9 @@ audit.jsonl
 evidence/
 .vorynex/
 
+# RepoSpine / CodeAtlas local context index (regenerate with `atlas update`)
+.codeatlas/
+
 # Secrets and local env
 .env
 .env.*
