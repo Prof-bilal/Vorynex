@@ -1,0 +1,8 @@
+{
+  "owner": "REPLACE_ME (the person/org running the proof)",
+  "authorization": "I own this system and authorize these tests against it.",
+  "date": "REPLACE_ME (YYYY-MM-DD)",
+  "system": "local loopback: tests/proof target on 127.0.0.1",
+  "in_scope": ["127.0.0.1 targets started by run-proof.sh"],
+  "out_of_scope": ["any third-party system", "any public hostname", "production data"]
+}

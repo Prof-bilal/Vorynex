@@ -1,4 +1,4 @@
-.PHONY: build test vet fmt ci lab bpf bpf-test context clean
+.PHONY: build test vet fmt ci lab bpf bpf-test context proof clean
 
 build:
 	go build ./...
@@ -36,6 +36,11 @@ context:
 	@command -v atlas >/dev/null 2>&1 || { echo "atlas not installed — run: npm i -g repospine-cli"; exit 1; }
 	atlas update --repo $(CURDIR)
 
+# Containment proof: arm A (bare) vs arm C (Vorynex Tier 0). Loopback + decoys.
+# PROOF_AUTHORIZED=1 is set here because the target is this repo's own fixture.
+proof:
+	PROOF_AUTHORIZED=1 tests/proof/run-proof.sh
+
 clean:
 	go clean ./...
-	rm -rf tests/security-lab/evidence
+	rm -rf tests/security-lab/evidence tests/proof/evidence

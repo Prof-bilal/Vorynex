@@ -44,6 +44,30 @@ jobs:
       - name: build
         run: npm run build
 
+  # Containment proof, arm A (bare) vs arm C (Vorynex Tier 0). Loopback only,
+  # decoy fixtures, `make proof` refuses without PROOF_AUTHORIZED=1.
+  proof:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: containment proof (arm A vs arm C)
+        run: make proof
+      - name: upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: proof-evidence
+          path: tests/proof/evidence/
+          if-no-files-found: warn
+
   # Tier 0 (Landlock) enforcement validation. Runs the security lab under the
   # Vorynex spawn-time engine on the CI kernel and asserts all seven attacks are
   # contained. See docs/SECURITY_TESTING.md.

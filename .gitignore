@@ -15,6 +15,9 @@ node_modules/
 .npm/
 pnpm-lock.yaml
 
+# Proof benchmark evidence (regenerate with `make proof`)
+tests/proof/evidence/
+
 # Local runtime state
 *.log
 audit.jsonl
