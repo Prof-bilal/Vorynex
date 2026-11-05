@@ -59,7 +59,11 @@ func TestSupabaseMirrorPersistsFleetState(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Mirror writes are async and best-effort; wait for them to land.
+	// Mirror writes are queued; drain them so the assertions see a settled state.
+	st.FlushMirror(5 * time.Second)
+
+	// Writes are FIFO, so the last host upsert must be the SetPolicy one: the
+	// earlier RegisterHost write (mode=observe, no policy) must not win.
 	deadline := time.Now().Add(3 * time.Second)
 	var hosts, events []captured
 	for time.Now().Before(deadline) {

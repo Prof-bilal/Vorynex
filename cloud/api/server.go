@@ -57,6 +57,19 @@ type Store struct {
 	desired  map[string]RolloutState
 	sboms    map[string]json.RawMessage
 	mirror   *SupabaseMirror
+
+	// Mirror writes are serialized through one FIFO queue. Writing in parallel
+	// lets an earlier upsert (e.g. RegisterHost's mode=observe) land after a
+	// later one (SetMode/SetPolicy) and overwrite it.
+	mirrorOnce sync.Once
+	mirrorQ    chan mirrorJob
+}
+
+type mirrorJob struct {
+	table      string
+	onConflict string
+	rows       any
+	flush      chan struct{}
 }
 
 // EnableSupabase attaches a durable Postgres mirror. Writes stay best-effort.
@@ -66,17 +79,56 @@ func (st *Store) EnableSupabase(m *SupabaseMirror) {
 	st.mirror = m
 }
 
+func (st *Store) startMirror() {
+	st.mirrorOnce.Do(func() {
+		st.mirrorQ = make(chan mirrorJob, 1024)
+		go st.mirrorLoop()
+	})
+}
+
+func (st *Store) mirrorLoop() {
+	for job := range st.mirrorQ {
+		if job.flush != nil {
+			close(job.flush)
+			continue
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		if err := st.mirror.upsert(ctx, job.table, job.onConflict, job.rows); err != nil {
+			log.Printf("supabase mirror: %v", err)
+		}
+		cancel()
+	}
+}
+
 func (st *Store) mirrorWrite(table, onConflict string, rows any) {
 	if st.mirror == nil {
 		return
 	}
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := st.mirror.upsert(ctx, table, onConflict, rows); err != nil {
-			log.Printf("supabase mirror: %v", err)
-		}
-	}()
+	st.startMirror()
+	select {
+	case st.mirrorQ <- mirrorJob{table: table, onConflict: onConflict, rows: rows}:
+	default:
+		log.Printf("supabase mirror: queue full, dropping one %s write", table)
+	}
+}
+
+// FlushMirror waits until every write queued so far has been attempted. It is
+// used by tests and by operators who want a deterministic drain before exit.
+func (st *Store) FlushMirror(timeout time.Duration) {
+	if st.mirror == nil {
+		return
+	}
+	st.startMirror()
+	done := make(chan struct{})
+	select {
+	case st.mirrorQ <- mirrorJob{flush: done}:
+	case <-time.After(timeout):
+		return
+	}
+	select {
+	case <-done:
+	case <-time.After(timeout):
+	}
 }
 
 // mirrorHostLocked upserts one host row (including its effective policy).
