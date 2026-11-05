@@ -107,6 +107,56 @@ func TestJournalAppendsAndReads(t *testing.T) {
 	}
 }
 
+func TestTransitionAndRevert(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+
+	// Fresh host: observe, no policy.
+	if _, err := SetMode(ModeObserve); err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	p := filepath.Join(dir, "policy.yaml")
+	if err := os.WriteFile(p, []byte("version: 1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	sha, err := Digest(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Transition to protect snapshots the observe posture.
+	if _, err := BeginTransition(ModeProtect, p, sha); err != nil {
+		t.Fatal(err)
+	}
+	s := Load()
+	if s.Mode != ModeProtect || s.PolicyPath != p || s.PreviousMode != ModeObserve {
+		t.Fatalf("after transition: %+v", s)
+	}
+	if !CanRevert() {
+		t.Fatal("CanRevert = false after a transition")
+	}
+
+	// Revert restores observe and clears the snapshot.
+	if _, err := Revert(); err != nil {
+		t.Fatal(err)
+	}
+	s = Load()
+	if s.Mode != ModeObserve || s.PolicyPath != "" || s.PreviousMode != "" {
+		t.Fatalf("after revert: %+v", s)
+	}
+	if CanRevert() {
+		t.Fatal("CanRevert = true after revert")
+	}
+
+	// Reverting with no snapshot still lands on observe, never on an empty mode.
+	if _, err := Revert(); err != nil {
+		t.Fatal(err)
+	}
+	if s := Load(); s.Mode != ModeObserve {
+		t.Fatalf("revert without snapshot left mode %q", s.Mode)
+	}
+}
+
 func TestLoadIgnoresCorruptState(t *testing.T) {
 	t.Setenv("XDG_STATE_HOME", t.TempDir())
 	if err := os.MkdirAll(Dir(), 0o700); err != nil {

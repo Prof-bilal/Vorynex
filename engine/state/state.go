@@ -46,6 +46,58 @@ type State struct {
 	ControlPlane string    `json:"control_plane,omitempty"`
 	Workload     string    `json:"workload,omitempty"`
 	UpdatedAt    time.Time `json:"updated_at"`
+
+	// Previous posture, kept so `protect --off` restores the exact prior state.
+	// One level is enough for rollback; the journal holds the full history.
+	PreviousMode       Mode   `json:"previous_mode,omitempty"`
+	PreviousPolicyPath string `json:"previous_policy_path,omitempty"`
+	PreviousPolicySHA  string `json:"previous_policy_sha256,omitempty"`
+}
+
+// Digest returns the SHA-256 of a policy file.
+func Digest(path string) (string, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("read policy %s: %w", path, err)
+	}
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:]), nil
+}
+
+// BeginTransition snapshots the current posture, then records the new one.
+func BeginTransition(m Mode, policyPath, policySHA string) (State, error) {
+	if !Valid(m) {
+		return Load(), fmt.Errorf("invalid mode %q", m)
+	}
+	return Update(func(s *State) {
+		s.PreviousMode = s.Mode
+		s.PreviousPolicyPath = s.PolicyPath
+		s.PreviousPolicySHA = s.PolicySHA256
+		s.Mode = m
+		s.PolicyPath = policyPath
+		s.PolicySHA256 = policySHA
+	})
+}
+
+// CanRevert reports whether a previous posture was snapshotted.
+func CanRevert() bool {
+	return Load().PreviousMode != ""
+}
+
+// Revert restores the snapshotted posture and clears the snapshot. Reverting
+// with no snapshot (first ever protect) falls back to observe with no policy.
+func Revert() (State, error) {
+	return Update(func(s *State) {
+		s.Mode = s.PreviousMode
+		if s.Mode == "" {
+			s.Mode = ModeObserve
+		}
+		s.PolicyPath = s.PreviousPolicyPath
+		s.PolicySHA256 = s.PreviousPolicySHA
+		s.PreviousMode = ""
+		s.PreviousPolicyPath = ""
+		s.PreviousPolicySHA = ""
+	})
 }
 
 // Dir is the agent state directory (shared with telemetry so there is one place

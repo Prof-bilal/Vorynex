@@ -33,7 +33,14 @@ Commands:
   policy      Generate a reviewable, signable policy from observed behavior
                 vorynex policy generate --from <events.jsonl> [--out <file>]
   telemetry   status | export --endpoint <url> [--token <t>] [--once]
-  protect     Enable high-confidence enforcement (Milestone 4)
+  protect     Enable high-confidence enforcement from an observe baseline, apply
+              the policy the control plane staged, or turn protection off
+                vorynex protect --from <events.jsonl> -- <command...>
+                vorynex protect --from-desired [--pubkey <hex|file>] [-- <command...>]
+                vorynex protect --off
+  run         Supervise a workload under a policy and roll back if it never
+              becomes healthy
+                vorynex run --policy <file> [--health <url|cmd>] -- <command...>
   status      Show current mode, effective policy, and recent events
   trace       Show a human-readable attack trace
                 vorynex trace [--from <events.jsonl>] [--workload <id>] [--all] [--json]
@@ -119,6 +126,11 @@ func main() {
 		}
 	case "status":
 		if err := runStatus(args[1:]); err != nil {
+			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
+			os.Exit(1)
+		}
+	case "run":
+		if err := runRun(args[1:]); err != nil {
 			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
 			os.Exit(1)
 		}
