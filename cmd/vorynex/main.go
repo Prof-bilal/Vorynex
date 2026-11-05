@@ -112,6 +112,16 @@ func main() {
 			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
 			os.Exit(1)
 		}
+	case "connect":
+		if err := runConnect(args[1:]); err != nil {
+			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
+			os.Exit(1)
+		}
+	case "status":
+		if err := runStatus(args[1:]); err != nil {
+			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
+			os.Exit(1)
+		}
 	case "live":
 		if err := runLive(args[1:]); err != nil {
 			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)

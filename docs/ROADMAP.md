@@ -203,6 +203,15 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
       simulate is done; AI drafting needs a model backend)
 
 ## Milestone 13 — Private beta
+- [ ] **Proof benchmarks first** (`docs/PROOF.md`, `make proof`): three-arm
+      experiment (bare / request-layer filter / Vorynex) showing that a WAF
+      blocks a known payload while Vorynex contains the post-exploitation
+      actions even when the payload is mutated. No launch before these numbers
+      exist.
+- [ ] `vorynex connect` + `vorynex status` (onboarding and posture)
+- [ ] Installable without the repo: release build, `install.sh`, systemd unit,
+      control-plane Dockerfile, deploy docs
+- [ ] Reversible protect: `--off`, `--from-desired`, health-check rollback
 - [ ] Real self-hosted Docker/Node workloads
 - [ ] Success metrics from [MVP.md](MVP.md) tracked
 

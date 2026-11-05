@@ -25,28 +25,7 @@ func runObserve(args []string) error {
 		return fmt.Errorf("no command after `--`")
 	}
 
-	f, path, err := audit.OpenTrace()
-	if err != nil {
-		return err
-	}
-	logger := audit.New(f)
-
-	fmt.Fprintln(os.Stderr, "vorynex observe: recording (no enforcement)")
-	code, runErr := audit.Trace(cmd, os.Environ(), os.Stdin, os.Stdout, os.Stderr, logger)
-	closeErr := f.Close()
-	if runErr != nil {
-		return runErr
-	}
-	if closeErr != nil {
-		return closeErr
-	}
-
-	ef, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	events, err := audit.ReadEvents(ef)
-	ef.Close()
+	path, events, code, err := observeCommand(cmd)
 	if err != nil {
 		return err
 	}
@@ -56,14 +35,6 @@ func runObserve(args []string) error {
 	prof := profiler.Build([][]audit.Event{events}, profiler.Options{MinSessions: 1, MinCount: 2})
 	blocked := profiler.WouldBlock(events)
 
-	// Stream observed events into the local telemetry spool. This is
-	// local-first: the exporter drains it separately (docs/FAILURE_MODES.md).
-	if spool, err := telemetry.OpenSpool(telemetry.DefaultSpoolPath(), 0); err == nil {
-		for _, e := range events {
-			_ = spool.Append(e)
-		}
-	}
-
 	printObserveReport(path, len(events), prof, blocked)
 
 	if code != 0 {
@@ -71,6 +42,45 @@ func runObserve(args []string) error {
 		os.Exit(code)
 	}
 	return nil
+}
+
+// observeCommand records one workload run and streams its events into the local
+// telemetry spool. It returns the trace path, the events, and the workload's
+// exit code (the caller decides whether that is fatal).
+func observeCommand(cmd []string) (path string, events []audit.Event, code int, err error) {
+	f, path, err := audit.OpenTrace()
+	if err != nil {
+		return "", nil, 0, err
+	}
+	logger := audit.New(f)
+
+	fmt.Fprintln(os.Stderr, "vorynex observe: recording (no enforcement)")
+	code, runErr := audit.Trace(cmd, os.Environ(), os.Stdin, os.Stdout, os.Stderr, logger)
+	closeErr := f.Close()
+	if runErr != nil {
+		return path, nil, code, runErr
+	}
+	if closeErr != nil {
+		return path, nil, code, closeErr
+	}
+
+	ef, err := os.Open(path)
+	if err != nil {
+		return path, nil, code, err
+	}
+	events, err = audit.ReadEvents(ef)
+	ef.Close()
+	if err != nil {
+		return path, nil, code, err
+	}
+
+	// Local-first: the exporter drains this separately (docs/FAILURE_MODES.md).
+	if spool, err := telemetry.OpenSpool(telemetry.DefaultSpoolPath(), 0); err == nil {
+		for _, e := range events {
+			_ = spool.Append(e)
+		}
+	}
+	return path, events, code, nil
 }
 
 func printObserveReport(path string, eventCount int, prof profiler.Profile, blocked []profiler.Blocked) {
