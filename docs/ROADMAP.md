@@ -203,11 +203,12 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
       simulate is done; AI drafting needs a model backend)
 
 ## Milestone 13 — Private beta
-- [ ] **Proof benchmarks first** (`docs/PROOF.md`, `make proof`): three-arm
-      experiment (bare / request-layer filter / Vorynex) showing that a WAF
-      blocks a known payload while Vorynex contains the post-exploitation
-      actions even when the payload is mutated. No launch before these numbers
-      exist.
+- [x] **Proof harness** (`make proof`, `docs/PROOF.md`, `docs/BENCHMARKS.md`):
+      bare vs OWASP CRS (PL1/PL2) vs Vorynex on a controlled target. 7/7 effects
+      contained; CRS missed the decimal-IP SSRF at PL1 (it landed) and caught it
+      at PL2. CI job uploads the evidence.
+- [ ] Proof on a **real application** (DVWS-node: real `exec` sink +
+      unauthenticated metadata SSRF), plus `vorynex bench` performance numbers
 - [ ] `vorynex connect` + `vorynex status` (onboarding and posture)
 - [ ] Installable without the repo: release build, `install.sh`, systemd unit,
       control-plane Dockerfile, deploy docs
