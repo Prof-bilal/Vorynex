@@ -1,637 +1,472 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { auth, currentUser } from "@clerk/nextjs/server";
-import { UserButton } from "@clerk/nextjs";
+import { auth } from "@clerk/nextjs/server";
 import { clerkConfigured } from "@/lib/auth";
-import Reveal from "./_components/Reveal";
 import {
   EyeIcon,
-  KeyIcon,
   KernelIcon,
+  KeyIcon,
   NetworkIcon,
   ShieldIcon,
   TerminalIcon,
+  GitHubIcon,
 } from "./_components/icons";
+import ProductPreview from "./_components/ProductPreview";
+import MarketingNav from "./_components/MarketingNav";
 
 export const metadata: Metadata = {
-  title: "Vorynex — Runtime containment for web apps",
+  title: "Vorynex — Give your app a boundary",
 };
 
-const navLinks = [
-  { href: "#why", label: "Why" },
-  { href: "#how", label: "How it works" },
-  { href: "#enforcement", label: "Enforcement" },
-  { href: "#shield", label: "Emergency Shield" },
-];
-
 const faqs = [
-  {
-    q: "Is Vorynex a WAF?",
-    a: "No. A WAF asks whether an HTTP request looks malicious. Vorynex assumes one will get through and limits what the workload can do afterwards. Keep the WAF; add a boundary behind it.",
-  },
-  {
-    q: "Does it prevent every exploit?",
-    a: "No, and we will never claim it. Vorynex reduces what an attacker can do after a vulnerability is exploited. It contains compromise; it does not remove the bug.",
-  },
-  {
-    q: "What happens if the control plane is down?",
-    a: "Nothing changes for your app. Enforcement is local, applied by the agent at the kernel boundary. A cloud outage must not disable protection, so the cloud is never in the request path.",
-  },
-  {
-    q: "Will it break my app?",
-    a: "Start in observe mode: zero enforcement, full visibility into what would have been blocked. Policies come from what your app actually did, and every proposed rule is validated against recorded traffic before it enforces.",
-  },
-  {
-    q: "What does it run on today?",
-    a: "Linux, on the host or inside Docker, for Node.js workloads. Spawn-time enforcement uses Landlock (unprivileged). Live enforcement uses four eBPF-LSM hooks and states honestly when a kernel cannot support them.",
-  },
+  [
+    "Is this a replacement for my WAF?",
+    "Keep your WAF. Vorynex adds a runtime boundary behind it: if a request exploits a vulnerability, the workload still has only the permissions in its policy. It reduces blast radius; it does not remove the vulnerability.",
+  ],
+  [
+    "Does my traffic go through Vorynex?",
+    "No. Enforcement happens locally on your Linux host. Vorynex is never in the HTTP request path, and the optional control plane is used for visibility and management.",
+  ],
+  [
+    "How do I avoid breaking legitimate behavior?",
+    "Begin in observe mode with no enforcement. Exercise real application paths, generate a policy from recorded behavior, and review the permissions before switching to protect. A baseline only reflects the behavior you exercised.",
+  ],
+  [
+    "What happens when the cloud goes offline?",
+    "Local enforcement continues with the effective policy. The optional control plane can become unavailable without removing the runtime boundary. Central visibility and management resume when it reconnects.",
+  ],
+  [
+    "What can I run today?",
+    "Linux hosts and Docker with Node.js workloads. Spawn-time containment uses Landlock; live enforcement uses eBPF-LSM on supported kernels. Available controls depend on the host and enforcement tier.",
+  ],
 ];
 
 export default async function LandingPage() {
-  // Rendered on the server so the signed-in name is in the first paint.
   const { userId } = clerkConfigured ? await auth() : { userId: null };
-  const user = userId ? await currentUser() : null;
-  const displayName =
-    user?.firstName ||
-    user?.username ||
-    user?.primaryEmailAddress?.emailAddress?.split("@")[0] ||
-    null;
-
+  const destination = userId ? "/dashboard" : "/signup";
   return (
-    <>
-      <header className="nav">
-        <div className="wrap">
-          <Link className="brand" href="/">
-            <span className="mark" aria-hidden="true" />
-            Vorynex
-          </Link>
-          <nav className="nav-links" aria-label="Sections">
-            {navLinks.map((l) => (
-              <a key={l.href} href={l.href}>
-                {l.label}
-              </a>
-            ))}
-          </nav>
-          <span className="nav-spacer" />
-          <div className="nav-actions">
-            {displayName ? (
-              <>
-                <span className="nav-user">
-                  Hi, <strong>{displayName}</strong>
-                </span>
-                <Link className="btn btn-ghost btn-sm" href="/dashboard">
-                  Dashboard
-                </Link>
-                <UserButton />
-              </>
-            ) : (
-              <>
-                <Link className="link-quiet" href="/login">
-                  Sign in
-                </Link>
-                <Link className="btn btn-ghost" href="/signup">
-                  Sign up
-                </Link>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
-
-      <main id="top">
-        <div className="aurora" aria-hidden="true" />
-
-        <section className="hero">
-          <div className="wrap">
-            <p className="eyebrow">
-              <span className="pulse" aria-hidden="true" />
-              Runtime containment for web apps
-            </p>
+    <div className="marketing">
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
+      <MarketingNav signedIn={Boolean(userId)} />
+      <main id="main-content">
+        <section className="landing-hero wrap">
+          <div className="hero-copy">
+            <a className="release-link" href="#enforcement">
+              <span className="live-dot" /> Built for the moment after an
+              exploit <span aria-hidden="true">↗</span>
+            </a>
             <h1>
-              The app can still have bugs.
+              Your app.
               <br />
-              Exploiting them is a dead end.
+              Its own <span>boundary.</span>
             </h1>
-            <p className="lede">
-              Vorynex learns what your Node app needs, then enforces a least-privilege runtime boundary around it.
+            <p className="hero-description">
+              A vulnerability shouldn’t become a foothold. Vorynex learns what
+              your app needs and contains what it doesn’t.
             </p>
-            <div className="deny-row" aria-label="What is denied by default">
-              <span className="deny">no shell</span>
-              <span className="deny">no secrets</span>
-              <span className="deny">no cloud credentials</span>
-              <span className="deny">no arbitrary egress</span>
-            </div>
-            <div className="hero-cta">
-              <Link className="btn btn-lg" href={displayName ? "/dashboard" : "/signup"}>
-                {displayName ? "Go to dashboard" : "Start free"}
+            <div className="hero-actions">
+              <Link className="btn btn-accent btn-lg" href={destination}>
+                {userId ? "Open your dashboard" : "Get started"}{" "}
+                <span aria-hidden="true">↗</span>
               </Link>
-              <a className="btn btn-ghost btn-lg" href="#enforcement">
-                How containment works
+              <a className="btn btn-ghost btn-lg" href="#platform">
+                Explore the platform <span aria-hidden="true">↓</span>
               </a>
             </div>
-          </div>
-
-          <div className="wrap">
-            <div className="showcase-outer">
-              <div className="showcase" aria-label="Product preview">
-                <div className="chrome">
-                  <span className="dots" aria-hidden="true">
-                    <i />
-                    <i />
-                    <i />
-                  </span>
-                  <span className="label">payments-api · protect</span>
-                  <span className="status">
-                    <span className="d" aria-hidden="true" />
-                    contained
-                  </span>
-                </div>
-                <div className="panes">
-                  <div className="pane">
-                    <div className="pane-h">
-                      <span className="t">Attack trace</span>
-                      <span className="r">10:41:02</span>
-                    </div>
-                    <ol className="chain">
-                      <li className="hop">
-                        <span className="n">01</span>
-                        <span className="v">Internet</span>
-                        <span className="tag">ingress</span>
-                      </li>
-                      <li className="arw">
-                        <span>↓</span>
-                      </li>
-                      <li className="hop">
-                        <span className="n">02</span>
-                        <span className="v">POST /api/run</span>
-                        <span className="tag">request</span>
-                      </li>
-                      <li className="arw">
-                        <span>↓</span>
-                      </li>
-                      <li className="hop">
-                        <span className="n">03</span>
-                        <span className="v">
-                          node <span className="dim">payments-api</span>
-                        </span>
-                        <span className="tag ok">running</span>
-                      </li>
-                      <li className="arw">
-                        <span>↓</span>
-                      </li>
-                      <li className="hop blocked">
-                        <span className="n">04</span>
-                        <span className="v">exec(/bin/bash -c …)</span>
-                        <span className="tag">DENIED</span>
-                      </li>
-                    </ol>
-                    <div className="pane-foot">
-                      <span>policy unexpected-child-process</span>
-                      <span>no shell spawned</span>
-                    </div>
-                  </div>
-                  <div className="pane">
-                    <div className="pane-h">
-                      <span className="t">Blast radius</span>
-                      <span className="r">if compromised</span>
-                    </div>
-                    <div className="blast">
-                      <div className="col reach">
-                        <h4>Reachable</h4>
-                        <ul>
-                          <li>
-                            <span className="ico" aria-hidden="true">
-                              !
-                            </span>
-                            PostgreSQL
-                          </li>
-                          <li>
-                            <span className="ico" aria-hidden="true">
-                              !
-                            </span>
-                            /app/uploads
-                          </li>
-                          <li>
-                            <span className="ico" aria-hidden="true">
-                              !
-                            </span>
-                            api.stripe.com
-                          </li>
-                        </ul>
-                      </div>
-                      <div className="col hold">
-                        <h4>Contained</h4>
-                        <ul>
-                          <li>
-                            <span className="ico" aria-hidden="true">
-                              ✓
-                            </span>
-                            host filesystem
-                          </li>
-                          <li>
-                            <span className="ico" aria-hidden="true">
-                              ✓
-                            </span>
-                            SSH &amp; cloud keys
-                          </li>
-                          <li>
-                            <span className="ico" aria-hidden="true">
-                              ✓
-                            </span>
-                            shell &amp; metadata
-                          </li>
-                        </ul>
-                      </div>
-                    </div>
-                    <div className="pane-foot">
-                      <span>derived from the policy</span>
-                      <span>no invented score</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            <div className="hero-assurances">
+              <span>
+                <span aria-hidden="true">✓</span> Local enforcement
+              </span>
+              <span>
+                <span aria-hidden="true">✓</span> Cloud optional
+              </span>
+              <span>
+                <span aria-hidden="true">✓</span> Outside the request path
+              </span>
             </div>
           </div>
-
-          <div className="strip">
-            <div className="wrap">
-              <div className="strip-row">
-                <span className="lbl">Built for</span>
-                <div className="strip-items">
-                  <span>Linux</span>
-                  <span>Docker</span>
-                  <span>Node.js</span>
-                  <span>Next.js</span>
-                  <span>Landlock</span>
-                  <span>eBPF-LSM</span>
-                </div>
+          <div
+            className="boundary-visual"
+            role="img"
+            aria-label="Illustrative runtime boundary: your Node.js app can access its app files and database, while shell execution and secret access are denied by policy."
+          >
+            <div className="visual-topline">
+              <span>RUNTIME BOUNDARY</span>
+              <span className="visual-state">
+                <span className="live-dot" /> POLICY ACTIVE
+              </span>
+            </div>
+            <div className="boundary-grid" aria-hidden="true">
+              <div className="orbit orbit-one" />
+              <div className="orbit orbit-two" />
+              <div className="orbit orbit-three" />
+              <div className="boundary-cross cross-one" />
+              <div className="boundary-cross cross-two" />
+              <div className="app-core">
+                <span className="core-icon">
+                  <KernelIcon size={34} />
+                </span>
+                <strong>your-app</strong>
+                <span>node server.js</span>
+                <small>
+                  <span className="live-dot" /> CONTAINED RUNTIME
+                </small>
               </div>
+              <div className="resource resource-files">
+                <span className="resource-icon">▤</span>
+                <span>
+                  App files<small>/app/**</small>
+                </span>
+                <b>✓</b>
+              </div>
+              <div className="resource resource-db">
+                <NetworkIcon size={19} />
+                <span>
+                  Database<small>approved connection</small>
+                </span>
+                <b>✓</b>
+              </div>
+              <div className="resource resource-shell denied">
+                <TerminalIcon size={19} />
+                <span>
+                  Spawn a shell<small>/bin/sh</small>
+                </span>
+                <b>×</b>
+              </div>
+              <div className="resource resource-secrets denied">
+                <KeyIcon size={19} />
+                <span>
+                  Read secrets<small>/root/.ssh/**</small>
+                </span>
+                <b>×</b>
+              </div>
+              <svg
+                className="boundary-lines"
+                viewBox="0 0 540 380"
+                preserveAspectRatio="none"
+              >
+                <path
+                  d="M270 170 L130 86 M270 170 L410 96"
+                  className="allowed-line"
+                />
+                <path
+                  d="M270 200 L125 302 M270 200 L410 300"
+                  className="denied-line"
+                />
+              </svg>
+            </div>
+            <div className="visual-bottomline">
+              <span>LEAST PRIVILEGE. ENFORCED LOCALLY.</span>
+              <span>ILLUSTRATIVE POLICY</span>
             </div>
           </div>
         </section>
-
-        <section className="section reveal" id="why">
-          <div className="wrap">
-            <div className="section-head">
-              <p className="kicker">The difference</p>
-              <h2>Two different questions</h2>
-              <p className="section-sub">
-                Request filtering tries to stop the attempt. Vorynex assumes one will get through and limits the
-                consequence.
+        <div className="compatibility wrap">
+          <span>BUILT FOR YOUR STACK</span>
+          <div>
+            <b>
+              <span aria-hidden="true">◉</span> Linux
+            </b>
+            <b>
+              <span aria-hidden="true">⬡</span> Node.js
+            </b>
+            <b>
+              <span aria-hidden="true">▥</span> Docker
+            </b>
+            <b>
+              <span aria-hidden="true">⌘</span> Landlock
+            </b>
+            <b>
+              <span aria-hidden="true">⊞</span> eBPF
+            </b>
+          </div>
+          <span>YOUR HOST. YOUR CONTROL.</span>
+        </div>
+        <section className="landing-section wrap" id="platform">
+          <div className="section-heading">
+            <div>
+              <p className="eyelabel">
+                <span /> THE PLATFORM
               </p>
+              <h2>
+                Know what’s running.
+                <br />
+                <span>Control what it can do.</span>
+              </h2>
             </div>
-            <div className="compare">
-              <div className="against">
-                <h3>A WAF asks</h3>
-                <p>Is this HTTP request malicious?</p>
-              </div>
-              <div className="for">
-                <h3>Vorynex asks</h3>
-                <p>Even if the code runs, what should this workload be allowed to do?</p>
-              </div>
-            </div>
+            <p>
+              From the fleet to a single denied operation.
+              <br />A clear view of your runtime boundary.
+            </p>
+          </div>
+          <ProductPreview />
+          <div className="feature-row">
+            {[
+              {
+                icon: <EyeIcon />,
+                title: "Visibility with context",
+                text: "See workload modes, effective policies, and runtime events in one place.",
+              },
+              {
+                icon: <ShieldIcon />,
+                title: "A smaller blast radius",
+                text: "Understand which resources remain reachable if a workload is compromised.",
+              },
+              {
+                icon: <TerminalIcon />,
+                title: "Evidence you can inspect",
+                text: "Trace containment to a concrete operation and the permission that denied it.",
+              },
+            ].map((f) => (
+              <article key={f.title}>
+                <span className="feature-icon">{f.icon}</span>
+                <h3>{f.title}</h3>
+                <p>{f.text}</p>
+              </article>
+            ))}
           </div>
         </section>
-
-        <section className="section reveal" id="enforcement">
+        <section className="how-section" id="how">
           <div className="wrap">
-            <div className="section-head">
-              <p className="kicker">What is enforced</p>
-              <h2>Runtime least privilege, in rules you can read</h2>
-              <p className="section-sub">
-                Not a score, not a model. A versioned policy of allow and deny rules, enforced at the kernel boundary on
-                the host.
-              </p>
-            </div>
-            <div className="bento">
-              <article className="cell wide">
-                <span className="ico-line">
-                  <KernelIcon size={20} />
-                </span>
-                <h3>Enforcement is local, and never in the request path</h3>
-                <p>
-                  The agent applies policy on your machine. The control plane is optional — if it is unreachable,
-                  policies keep enforcing and telemetry drains when it returns.
-                </p>
-                <div className="plane mono">
-                  <span>filesystem.read&nbsp;&nbsp;/app</span>
-                  <br />
-                  <span>network.allow&nbsp;&nbsp;&nbsp;&nbsp;api.stripe.com</span>
-                  <br />
-                  <span style={{ color: "var(--denied)" }}>process.exec.deny&nbsp;/bin/bash</span>
-                </div>
-              </article>
-              <article className="cell">
-                <span className="ico-line">
-                  <ShieldIcon size={20} />
-                </span>
-                <h3>Two tiers, one policy</h3>
-                <p>Landlock at spawn time; four eBPF-LSM hooks on a workload you cannot restart.</p>
-                <span className="tagline">spawn-time + live</span>
-              </article>
-              <article className="cell">
-                <span className="ico-line">
-                  <TerminalIcon size={20} />
-                </span>
-                <h3>File-granular exec</h3>
-                <p>Allow <span className="mono">node</span>, deny <span className="mono">/bin/bash</span> — matched by inode, not by name convention.</p>
-              </article>
-              <article className="cell">
-                <span className="ico-line">
-                  <NetworkIcon size={20} />
-                </span>
-                <h3>Egress allowlist</h3>
-                <p>Every outbound connection has to be named, so arbitrary callback traffic simply does not leave.</p>
-              </article>
-              <article className="cell">
-                <span className="ico-line">
-                  <KeyIcon size={20} />
-                </span>
-                <h3>Secrets stay unreadable</h3>
-                <p>Deny rules win over grants, and high-confidence secret filenames are masked inside allowed trees.</p>
-              </article>
-              <article className="cell">
-                <span className="ico-line">
-                  <EyeIcon size={20} />
-                </span>
-                <h3>Observe first, always</h3>
-                <p>Start with zero enforcement and a report of what would have been blocked. Tighten only when you choose.</p>
-              </article>
-            </div>
-          </div>
-        </section>
-
-        <section className="section reveal" id="how">
-          <div className="wrap">
-            <div className="section-head">
-              <p className="kicker">How it works</p>
-              <h2>Three commands from running app to boundary</h2>
-              <p className="section-sub">
-                Nothing blocks until you say so, and the policy is generated from what the app already does.
-              </p>
-            </div>
-            <div className="steps">
-              <article className="step-card">
-                <span className="num">01</span>
-                <h3>Observe the baseline</h3>
-                <p>Run with zero enforcement. Every file, exec and connection the workload needed is recorded.</p>
-                <code className="cmd">
-                  <span className="prompt">$ </span>vorynex observe -- node server.js
-                </code>
-              </article>
-              <article className="step-card">
-                <span className="num">02</span>
-                <h3>Generate a policy</h3>
-                <p>Dangerous classes become explicit denies. The result is reviewable, versioned and signed.</p>
-                <code className="cmd">
-                  <span className="prompt">$ </span>vorynex policy generate --from events.jsonl
-                </code>
-              </article>
-              <article className="step-card">
-                <span className="num">03</span>
-                <h3>Enforce locally</h3>
-                <p>Launch under the boundary, or attach live to a workload you cannot restart.</p>
-                <code className="cmd">
-                  <span className="prompt">$ </span>vorynex protect --from events.jsonl -- node server.js
-                </code>
-              </article>
-            </div>
-          </div>
-        </section>
-
-        <section className="section reveal" aria-label="Capability facts">
-          <div className="wrap">
-            <div className="metrics">
-              <div className="metric">
-                <div className="v">2</div>
-                <div className="k">Enforcement tiers</div>
-                <div className="s">spawn-time + live</div>
-              </div>
-              <div className="metric">
-                <div className="v">4</div>
-                <div className="k">Live kernel hooks</div>
-                <div className="s">capable · exec · file · connect</div>
-              </div>
-              <div className="metric">
-                <div className="v">7/7</div>
-                <div className="k">Lab attacks contained</div>
-                <div className="s">enforced in CI on every push</div>
-              </div>
-              <div className="metric">
-                <div className="v">0</div>
-                <div className="k">Cloud calls in the request path</div>
-                <div className="s">enforcement is local</div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="section reveal">
-          <div className="wrap">
-            <div className="section-head">
-              <p className="kicker">Enforcement tiers</p>
-              <h2>Where you can restart. Where you cannot.</h2>
-            </div>
-            <div className="grid-2">
-              <div className="tier">
-                <h3>Spawn-time</h3>
-                <p className="env">Landlock · unprivileged · works inside Docker</p>
-                <ul>
-                  <li>
-                    <span className="b">✓</span>Read and write limited to granted paths
-                  </li>
-                  <li>
-                    <span className="b">✓</span>Exec limited to the workload&apos;s own runtime
-                  </li>
-                  <li>
-                    <span className="b">✓</span>Outbound TCP denied unless allowlisted
-                  </li>
-                  <li>
-                    <span className="b">✓</span>Inherited by every child process
-                  </li>
-                </ul>
-              </div>
-              <div className="tier">
-                <h3>Live</h3>
-                <p className="env">eBPF-LSM · cgroup-scoped · disarmed by default</p>
-                <ul>
-                  <li>
-                    <span className="b">✓</span>Enforce on a workload that is already running
-                  </li>
-                  <li>
-                    <span className="b">✓</span>File-granular exec and path control
-                  </li>
-                  <li>
-                    <span className="b">✓</span>No restart, and a running workload is never killed
-                  </li>
-                  <li>
-                    <span className="b">✓</span>Degrades honestly when the kernel cannot support it
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="section reveal" id="shield">
-          <div className="wrap">
-            <div className="section-head">
-              <p className="kicker">Emergency Shield</p>
-              <h2>A CVE drops. Contain it before you patch.</h2>
-              <p className="section-sub">
-                Vorynex maps an exploited vulnerability to the workloads that run it, drafts containment, and proves it
-                before it enforces.
-              </p>
-            </div>
-            <div className="grid-2" style={{ alignItems: "start" }}>
-              <div className="panel">
-                <span className="role">The pipeline</span>
-                <div className="flow" style={{ marginTop: 14 }}>
-                  <span className="step hot">new CVE</span>
-                  <span className="sep">→</span>
-                  <span className="step">affected workloads</span>
-                  <span className="sep">→</span>
-                  <span className="step">candidate containment</span>
-                  <span className="sep">→</span>
-                  <span className="step">deterministic validation</span>
-                  <span className="sep">→</span>
-                  <span className="step safe">observe</span>
-                  <span className="sep">→</span>
-                  <span className="step safe">protect</span>
-                </div>
-                <p className="muted" style={{ margin: 0, fontSize: 14.5, lineHeight: 1.65 }}>
-                  Sources include CISA KEV, NVD, GitHub Security Advisories, OSV and vendor advisories. AI may summarize
-                  and draft a rule; it never pushes an untested block into production.
-                </p>
-              </div>
+            <div className="section-heading">
               <div>
-                <div className="note" style={{ marginBottom: 14 }}>
-                  <strong>Mitigation is not a patch.</strong> Emergency Shield buys time. It does not replace fixing the
-                  vulnerability.
-                </div>
-                <div className="panel">
-                  <span className="role">Example</span>
-                  <ul>
-                    <li>
-                      <span className="b">✓</span>2 affected workloads identified from their SBOMs
-                    </li>
-                    <li>
-                      <span className="b">✓</span>shell execution from the web worker denied
-                    </li>
-                    <li>
-                      <span className="b">✓</span>cloud metadata access denied
-                    </li>
-                    <li>
-                      <span className="b">✓</span>validated against recorded traffic
-                    </li>
-                    <li>
-                      <span className="b warn">!</span>egress restriction needs review
-                    </li>
-                  </ul>
-                </div>
+                <p className="eyelabel">
+                  <span /> FROM OBSERVATION TO ENFORCEMENT
+                </p>
+                <h2>
+                  Learn first.
+                  <br />
+                  <span>Enforce with confidence.</span>
+                </h2>
               </div>
+              <p>
+                Start with your application’s real behavior.
+                <br />
+                Turn it into a boundary you can review.
+              </p>
             </div>
-          </div>
-        </section>
-
-        <section className="section reveal" id="local">
-          <div className="wrap">
-            <div className="section-head">
-              <p className="kicker">Local-first</p>
-              <h2>The cloud is optional. Protection is not.</h2>
-            </div>
-            <div className="split">
-              <div className="panel">
-                <span className="role">Vorynex Cloud</span>
-                <h3>Control plane</h3>
-                <ul>
-                  <li>
-                    <span className="b">✓</span>Fleet dashboard, event history, audit trail
-                  </li>
-                  <li>
-                    <span className="b">✓</span>CVE intelligence and Emergency Shield
-                  </li>
-                  <li>
-                    <span className="b">✓</span>Policy review and staged rollout
-                  </li>
-                  <li>
-                    <span className="b warn">!</span>Never sits in the request path
-                  </li>
-                </ul>
-              </div>
-              <div className="panel">
-                <span className="role">Vorynex Agent</span>
-                <h3>Enforcement</h3>
-                <ul>
-                  <li>
-                    <span className="b">✓</span>Applies policy at the kernel boundary
-                  </li>
-                  <li>
-                    <span className="b">✓</span>Keeps enforcing with no network
-                  </li>
-                  <li>
-                    <span className="b">✓</span>Buffers telemetry offline, exports later
-                  </li>
-                  <li>
-                    <span className="b">✓</span>Verifies the policy signature before loading it
-                  </li>
-                </ul>
-              </div>
-              <div className="center-note">
-                cloud unreachable → <b>policies keep enforcing</b> → telemetry drains on reconnect
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="section reveal" id="faq">
-          <div className="wrap">
-            <div className="section-head">
-              <p className="kicker">Straight answers</p>
-              <h2>What Vorynex is — and is not</h2>
-            </div>
-            <div className="faq">
-              {faqs.map((f) => (
-                <details key={f.q}>
-                  <summary>{f.q}</summary>
-                  <div className="a">{f.a}</div>
-                </details>
+            <div className="workflow-grid">
+              {[
+                {
+                  n: "01",
+                  icon: <EyeIcon />,
+                  title: "Observe your app",
+                  text: "Run real workflows. Record the files, processes, and connections your app uses, with no enforcement.",
+                  command: "vorynex observe -- node server.js",
+                },
+                {
+                  n: "02",
+                  icon: <TerminalIcon />,
+                  title: "Review the policy",
+                  text: "Generate a least-privilege policy from the baseline. Inspect the rules and account for paths you haven’t exercised.",
+                  command: "vorynex policy generate --from events.jsonl",
+                },
+                {
+                  n: "03",
+                  icon: <ShieldIcon />,
+                  title: "Contain the unexpected",
+                  text: "Enable local enforcement. Keep the permissions your app needs and constrain operations beyond its boundary.",
+                  command:
+                    "vorynex protect --from events.jsonl -- node server.js",
+                },
+              ].map((step) => (
+                <article key={step.n}>
+                  <div className="workflow-top">
+                    <span>{step.n} /</span>
+                    {step.icon}
+                  </div>
+                  <h3>{step.title}</h3>
+                  <p>{step.text}</p>
+                  <code>{step.command}</code>
+                </article>
               ))}
             </div>
           </div>
         </section>
-
-        <section className="final" id="start">
-          <div className="wrap">
-            <h2>Contain compromise. Not just attempts.</h2>
-            <p>
-              Vorynex reduces what an attacker can do after a vulnerability is exploited. It is not a WAF, a scanner, or
-              a guarantee. It is runtime least privilege, made operable.
-            </p>
-            <div className="hero-cta">
-              <Link className="btn btn-lg" href={displayName ? "/dashboard" : "/signup"}>
-                {displayName ? "Open the dashboard" : "Start free"}
-              </Link>
-              <Link className="btn btn-ghost btn-lg" href={displayName ? "/dashboard/settings" : "/login"}>
-                {displayName ? "Account" : "Sign in"}
-              </Link>
+        <section className="landing-section wrap" id="enforcement">
+          <div className="architecture-layout">
+            <div>
+              <p className="eyelabel">
+                <span /> SECURITY THAT STAYS WITH YOUR APP
+              </p>
+              <h2>
+                The boundary is local.
+                <br />
+                <span>The cloud is optional.</span>
+              </h2>
+              <p className="architecture-description">
+                Your host enforces the policy. The control plane helps you see
+                and manage it. Losing a cloud connection doesn’t remove your
+                runtime boundary.
+              </p>
+              <a
+                className="text-link"
+                href="https://github.com/Prof-bilal/Vorynex"
+              >
+                Explore the architecture <span aria-hidden="true">↗</span>
+              </a>
+            </div>
+            <div className="architecture-card">
+              <div className="architecture-cloud">
+                <NetworkIcon />
+                <div>
+                  <strong>Control plane</strong>
+                  <span>Fleet visibility & management</span>
+                </div>
+                <small>OPTIONAL</small>
+              </div>
+              <div className="telemetry-link">
+                <span>↑ telemetry</span>
+                <span>↓ management</span>
+              </div>
+              <div className="architecture-host">
+                <div className="host-label">
+                  <span className="live-dot" /> YOUR LINUX HOST
+                </div>
+                <div className="host-parts">
+                  <span>
+                    <KernelIcon /> Your application
+                  </span>
+                  <span>
+                    <ShieldIcon /> Local enforcement
+                  </span>
+                </div>
+                <p>Landlock · eBPF-LSM on supported kernels</p>
+              </div>
+              <div className="architecture-note">
+                <span aria-hidden="true">↳</span> HTTP requests go directly to
+                your app.
+              </div>
+            </div>
+          </div>
+          <div className="capability-strip">
+            <div>
+              <strong>Spawn-time containment</strong>
+              <span>Landlock · unprivileged boundary</span>
+            </div>
+            <div>
+              <strong>Live enforcement</strong>
+              <span>eBPF-LSM · supported kernels</span>
+            </div>
+            <div>
+              <strong>Honest by design</strong>
+              <span>Capabilities depend on the host and tier</span>
             </div>
           </div>
         </section>
+        <section className="landing-section wrap" id="shield">
+          <div className="shield-section">
+            <div>
+              <p className="eyelabel">
+                <span /> EMERGENCY SHIELD
+              </p>
+              <h2>
+                A new CVE.
+                <br />
+                <span>A reviewed response.</span>
+              </h2>
+              <p className="architecture-description">
+                Match affected dependencies, draft a containment policy, and
+                simulate it against recorded behavior before you decide to
+                enforce.
+              </p>
+              <a
+                className="text-link"
+                href="https://github.com/Prof-bilal/Vorynex"
+              >
+                Inspect the containment workflow ↗
+              </a>
+            </div>
+            <div className="shield-pipeline">
+              <div>
+                <span>01</span>
+                <strong>Correlate dependencies</strong>
+                <small>Identify affected packages</small>
+              </div>
+              <div>
+                <span>02</span>
+                <strong>Validate the candidate</strong>
+                <small>Check rules and simulate recorded events</small>
+              </div>
+              <div>
+                <span>03</span>
+                <strong>Review, then observe</strong>
+                <small>Confirm behavior before protecting</small>
+              </div>
+              <p>
+                <ShieldIcon size={15} /> Mitigation buys time. Upgrade the
+                affected package.
+              </p>
+            </div>
+          </div>
+        </section>
+        <section className="landing-section wrap faq-layout" id="faq">
+          <div>
+            <p className="eyelabel">
+              <span /> GOOD QUESTIONS
+            </p>
+            <h2>
+              Clarity is part
+              <br />
+              <span>of the protection.</span>
+            </h2>
+            <p className="architecture-description">
+              What Vorynex does, where it runs,
+              <br />
+              and what to expect.
+            </p>
+          </div>
+          <div className="new-faq">
+            {faqs.map(([q, a]) => (
+              <details key={q}>
+                <summary>
+                  {q}
+                  <span aria-hidden="true">+</span>
+                </summary>
+                <p>{a}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+        <section className="closing-section wrap">
+          <div className="closing-mark">
+            <ShieldIcon size={30} />
+          </div>
+          <p className="eyelabel">LESS PRIVILEGE. LESS ROOM TO MOVE.</p>
+          <h2>
+            Ship your app.
+            <br />
+            <span>Keep its world small.</span>
+          </h2>
+          <p>Build a runtime boundary around what your app actually needs.</p>
+          <Link className="btn btn-accent btn-lg" href={destination}>
+            {userId ? "Open dashboard" : "Get started with Vorynex"}{" "}
+            <span aria-hidden="true">↗</span>
+          </Link>
+          <a
+            className="closing-source"
+            href="https://github.com/Prof-bilal/Vorynex"
+          >
+            <GitHubIcon /> Explore on GitHub
+          </a>
+        </section>
       </main>
-
-      <footer>
+      <footer className="landing-footer">
         <div className="wrap">
-          <span>© 2026 Vorynex · Built on Warden (MIT)</span>
-          <span className="links">
+          <Link className="brand" href="/">
+            <span className="mark" aria-hidden="true" />
+            vorynex<span className="brand-period">.</span>
+          </Link>
+          <p>Runtime least privilege. Reduced blast radius.</p>
+          <div>
+            <a href="#platform">Platform</a>
             <a href="#how">How it works</a>
-            <a href="#shield">Emergency Shield</a>
-            <a href="https://github.com/Prof-bilal/Vorynex">GitHub</a>
-          </span>
+            <a href="https://github.com/Prof-bilal/Vorynex">GitHub ↗</a>
+          </div>
         </div>
       </footer>
-
-      <Reveal />
-    </>
+    </div>
   );
 }

@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  devIndicators: { position: "bottom-right" },
   // Allow an isolated build directory so `next build` never races a running
   // `next dev`/`next start` (they share `.next`, which corrupts the build).
   // Normal runs keep the default.

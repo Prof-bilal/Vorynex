@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { KernelIcon, KeyIcon, NetworkIcon } from "./icons";
 
 const items = [
   { href: "/dashboard", label: "Overview" },
@@ -13,15 +14,25 @@ export default function RailNav() {
   return (
     <nav className="rail-nav" aria-label="Dashboard">
       {items.map((item) => {
-        const active = item.href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(item.href);
+        const active =
+          item.href === "/dashboard"
+            ? pathname === "/dashboard"
+            : pathname.startsWith(item.href);
         return (
-          <Link key={item.href} className="rail-link" href={item.href} aria-current={active ? "page" : undefined}>
+          <Link
+            key={item.href}
+            className="rail-link"
+            href={item.href}
+            aria-current={active ? "page" : undefined}
+          >
+            {item.href === "/dashboard" ? <KernelIcon /> : <KeyIcon />}
             <span>{item.label}</span>
           </Link>
         );
       })}
       <Link className="rail-link" href="/">
-        <span>← Back to site</span>
+        <NetworkIcon />
+        <span>Back to website ↗</span>
       </Link>
     </nav>
   );
