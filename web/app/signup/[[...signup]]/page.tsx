@@ -1,18 +1,17 @@
 import type { Metadata } from "next";
 import { SignUp } from "@clerk/nextjs";
 import NotConfigured from "../../_components/NotConfigured";
+import AuthShell from "../../_components/AuthShell";
+import { clerkConfigured } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Create your account" };
 
-const configured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
-
 export default function SignupPage() {
-  if (!configured) return <NotConfigured mode="sign-up" />;
+  if (!clerkConfigured) return <NotConfigured mode="sign-up" />;
   return (
-    <div className="auth-wrap">
-      <div className="aurora" aria-hidden="true" />
+    <AuthShell>
       <SignUp signInUrl="/login" fallbackRedirectUrl="/dashboard" />
-    </div>
+    </AuthShell>
   );
 }

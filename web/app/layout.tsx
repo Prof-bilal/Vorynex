@@ -1,6 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
+import { clerkConfigured } from "@/lib/auth";
+import { Inter, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: ["normal", "italic"], variable: "--font-serif" });
+const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
   title: {
@@ -8,37 +14,52 @@ export const metadata: Metadata = {
     template: "%s · Vorynex",
   },
   description:
-    "Vorynex learns what your web app needs, enforces a least-privilege runtime boundary, and contains post-exploitation behavior. The app can still have bugs. Vorynex makes exploiting them a dead end.",
+    "Vorynex learns what your web app needs, enforces a local least-privilege runtime boundary, and reduces the blast radius of compromise. Cloud optional. Outside the request path.",
 };
 
 export const viewport: Viewport = {
-  colorScheme: "dark",
-  themeColor: "#08090a",
+  colorScheme: "light dark",
+  themeColor: [{ media: "(prefers-color-scheme: light)", color: "#f5f2ea" }, { media: "(prefers-color-scheme: dark)", color: "#0f1012" }],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const page = (
+    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${serif.variable} ${mono.variable}`}>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.theme||(matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light");document.documentElement.dataset.theme=t}catch(e){}`,
+          }}
+        />
+      </head>
+      <body>{children}</body>
+    </html>
+  );
+  if (!clerkConfigured) return page;
   return (
     <ClerkProvider
       appearance={{
         variables: {
-          colorPrimary: "#5eead4",
-          colorPrimaryForeground: "#08090a",
-          colorBackground: "#0e0f11",
-          colorForeground: "#f7f8f8",
-          colorMutedForeground: "#a8adb5",
-          colorInput: "#121316",
-          colorInputForeground: "#f7f8f8",
-          colorNeutral: "#f7f8f8",
-          colorDanger: "#ff8677",
-          borderRadius: "10px",
+          colorPrimary: "var(--accent)",
+          colorPrimaryForeground: "var(--on-accent)",
+          colorBackground: "var(--surface)",
+          colorForeground: "var(--ink)",
+          colorMutedForeground: "var(--ink-2)",
+          colorInput: "var(--bg)",
+          colorInputForeground: "var(--ink)",
+          colorNeutral: "var(--ink)",
+          colorDanger: "var(--denied)",
+          borderRadius: "7px",
           fontFamily:
             '-apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif',
         },
       }}
     >
-      <html lang="en">
-        <body>{children}</body>
-      </html>
+      {page}
     </ClerkProvider>
   );
 }
