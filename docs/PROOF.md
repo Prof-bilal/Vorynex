@@ -17,7 +17,16 @@ The request is never what Vorynex blocks. The **effect** is what it denies.
 
 ## What has been measured
 
-`make proof` → `tests/proof/evidence/<stamp>/`
+Four phases, all reproducible from this repo:
+
+| Phase | Target | Arms compared | Headline | Detail |
+|---|---|---|---|---|
+| **P1** | this repo's fixture | bare vs Vorynex Tier 0 | 5/5 attacks land bare, 5/5 contained; benign unaffected | below |
+| **P2** | this repo's fixture | + OWASP CRS PL1/PL2 | CRS blocks 6/7 at PL1, 7/7 at PL2; the payload it missed still landed | [BENCHMARKS.md](BENCHMARKS.md) |
+| **P3** | **DVWS-node** (real third-party app, Docker) | bare / CRS (PL1, PL2, tuned) / Vorynex Tier 1 live attach | CRS let the authenticated `exec()` injection through at every setting; one Tier 1 hook set contained 2/2 without restarting the container | [BENCHMARKS.md](BENCHMARKS.md#p3--the-same-comparison-against-a-real-application) |
+| **P4** | the same endpoint | bare / Tier 0 / CRS in the request path | Tier 0 below its own noise floor; CRS +1.5 ms p50 and ~6× CPU, slower in 7/7 rounds | [PERFORMANCE.md](PERFORMANCE.md) |
+
+`make proof` → `tests/proof/evidence/<stamp>/` (P1+P2, also a CI job):
 
 ```
 Attacks: 7   PASS 7 / FAIL 0 / VOID 0   Benign: ok
@@ -52,11 +61,24 @@ release blocker.
 - **Arm C** — the same target launched under `vorynex exec --policy` (Tier 0,
   Landlock: read only the app tree, write only a scratch dir, no outbound TCP,
   no shell exec).
+- **P3** adds a real target in Docker and arms **Tier 1** on the *running*
+  container's cgroup (`live attach --deny-exec /proc/<pid>/root/bin/sh
+  --block-connect <collector>`). The app is never restarted, and the denied inode
+  is resolved through the container's mount namespace — the image's shell is a
+  different file from the host's.
+- **P4** interleaves arms round by round, drives them open-loop at a fixed rate
+  so a stall cannot be hidden by the generator, and reports paired per-round
+  deltas against a bare-vs-bare noise floor.
 - Targets are **loopback only**; fixtures are decoys (`DECOY-VORYNEX-NOT-REAL`);
   payloads only touch the run's temp dir. `make proof` refuses unless
   `PROOF_AUTHORIZED=1` is set.
 - Effects are checked **host-side** (marker/leak file, collector hit count,
-  written file), not from the workload's own output.
+  written file), never from the workload's own output — the DVWS XML-RPC reply
+  still claims success while the fetch was denied.
+- Every arm asserts its own mechanism separately from observing the effect: an
+  attach that armed nothing, a collector that never started, or a client that
+  sent chunked bodies all produced wrong results during development, in both
+  directions.
 
 ## What this does NOT prove (yet)
 

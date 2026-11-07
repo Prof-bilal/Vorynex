@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vorynex — containment proof</title>
+<style>
+  :root {
+    --bg: #0b0f12;
+    --surface: #12181d;
+    --surface-2: #171f26;
+    --line: rgba(255,255,255,0.08);
+    --text: #e6edf3;
+    --muted: #94a3b8;
+    --accent: #2dd4bf;
+    --landed: #f87171;
+    --blocked: #34d399;
+    --na: #64748b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 56px 24px 96px; }
+  header { border-bottom: 1px solid var(--line); padding-bottom: 28px; margin-bottom: 40px; }
+  .eyebrow { color: var(--accent); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; margin: 0 0 12px; }
+  h1 { font-size: 34px; line-height: 1.15; font-weight: 600; margin: 0 0 12px; letter-spacing: -0.02em; }
+  .sub { color: var(--muted); font-size: 16px; margin: 0; max-width: 70ch; }
+  .meta { color: var(--muted); font-size: 12px; margin-top: 16px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  h2 { font-size: 20px; font-weight: 600; margin: 48px 0 8px; letter-spacing: -0.01em; }
+  h2 .num { color: var(--accent); font-family: ui-monospace, monospace; font-size: 13px; margin-right: 10px; }
+  h3 { font-size: 15px; font-weight: 600; margin: 28px 0 8px; }
+  p { margin: 10px 0; color: #cbd5e1; }
+  .lead { color: var(--muted); margin-bottom: 20px; }
+  .claim {
+    border-left: 2px solid var(--accent); background: var(--surface);
+    padding: 18px 22px; border-radius: 0 8px 8px 0; margin: 28px 0 0;
+  }
+  .claim p { margin: 0; color: var(--text); }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 24px 0 8px; }
+  @media (max-width: 760px) { .cards { grid-template-columns: 1fr; } }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
+  .card .k { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+  .card .v { font-size: 26px; font-weight: 600; margin: 8px 0 4px; letter-spacing: -0.02em; }
+  .card .d { color: var(--muted); font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0 6px; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+  td.num, th.num { text-align: right; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .landed { color: var(--landed); font-weight: 600; }
+  .blocked { color: var(--blocked); font-weight: 600; }
+  .na { color: var(--na); }
+  .note { color: var(--muted); font-size: 13px; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font-size: 13px; color: #cbd5e1; }
+  code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  .bar-row { display: grid; grid-template-columns: 90px 1fr 110px; gap: 12px; align-items: center; margin: 8px 0; }
+  .bar-track { background: var(--surface-2); height: 22px; border-radius: 4px; overflow: hidden; }
+  .bar { height: 100%; border-radius: 4px; }
+  .bar.bare { background: #475569; }
+  .bar.vx { background: var(--accent); }
+  .bar.crs { background: #f59e0b; }
+  .bar-val { color: var(--muted); font-size: 13px; font-family: ui-monospace, monospace; text-align: right; }
+  .limits { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 6px 22px 18px; margin-top: 14px; }
+  .limits li { color: #cbd5e1; margin: 8px 0; }
+  .limits strong { color: var(--text); }
+  footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+  .toggle { background: var(--surface-2); border: 1px solid var(--line); color: var(--text);
+            border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer; margin-top: 10px; }
+  .toggle:hover { border-color: var(--accent); }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">Measured evidence</p>
+  <h1>Vorynex contains the damage.<br>It does not need to recognise the attack.</h1>
+  <p class="sub">Four phases of measurement: a deliberately vulnerable fixture, a real
+    third-party application, a request-layer WAF as the comparison arm, and the cost of
+    each. Every number below comes from a run committed to the repository.</p>
+  <p class="meta">kernel 7.2.8 · Landlock ABI 10 · OWASP CRS 4.0 (pinned) · Coraza v3.8.1 · node 22.23.4</p>
+</header>
+
+<div class="claim">
+  <p><strong>The claim.</strong> These attacks land when nothing is enforcing, and are contained
+    when Vorynex is — while legitimate requests keep working. A request-layer filter stops the
+    payloads it recognises. Vorynex never has to recognise anything: it denies the
+    <em>effect</em> (the write, the connect, the exec, the read), not the request.</p>
+</div>
+
+<div class="cards">
+  <div class="card">
+    <div class="k">Fixture · P1–P2</div>
+    <div class="v">7 / 7</div>
+    <div class="d">attacks landed bare, all contained. CRS blocked 6/7 at PL1 — the one it
+      missed reached the target and landed.</div>
+  </div>
+  <div class="card">
+    <div class="k">Real app · P3</div>
+    <div class="v">0 / 4</div>
+    <div class="d">CRS configurations stopped the authenticated <code>exec()</code> injection
+      (PL1, PL2, stock and tuned). Live Tier 1 contained it.</div>
+  </div>
+  <div class="card">
+    <div class="k">Cost · P4</div>
+    <div class="v">&lt; noise</div>
+    <div class="d">Tier 0's latency delta is smaller than the same workload measured twice.
+      The in-path filter: +1.5 ms p50, ~6&times; CPU, in 7/7 rounds.</div>
+  </div>
+</div>
+
+<h2><span class="num">P1–P2</span>Fixture: a controlled target, seven attacks</h2>
+<p class="lead">A deliberately vulnerable Node service. Effects are checked on the host —
+marker files, a decoy secret, a loopback collector — never from the app's own reply.</p>
+<table>
+  <thead><tr>
+    <th>Scenario</th><th>Bare</th><th>CRS PL1</th><th>CRS PL2</th><th>Vorynex Tier 0</th>
+  </tr></thead>
+  <tbody>
+    <tr><td><code>cmd_marker</code> — exec injection → marker file</td><td class="landed">landed</td><td class="blocked">blocked</td><td class="blocked">blocked</td><td class="blocked">contained</td></tr>
+    <tr><td><code>cmd_secret</code> — exec injection → read decoy <code>.env</code></td><td class="landed">landed</td><td class="blocked">blocked</td><td class="blocked">blocked</td><td class="blocked">contained</td></tr>
+    <tr><td><code>path_traversal</code> — <code>../</code> → decoy secret</td><td class="landed">landed</td><td class="blocked">blocked</td><td class="blocked">blocked</td><td class="blocked">contained</td></tr>
+    <tr><td><code>ssrf_dotted</code> — fetch <code>127.0.0.1:&lt;port&gt;</code></td><td class="landed">landed</td><td class="blocked">blocked</td><td class="blocked">blocked</td><td class="blocked">contained</td></tr>
+    <tr><td><code>ssrf_decimal</code> — <strong>same host, written <code>2130706433</code></strong></td><td class="landed">landed</td><td class="landed">landed</td><td class="blocked">blocked</td><td class="blocked">contained</td></tr>
+    <tr><td><code>persistence_write</code> — write into the app tree</td><td class="landed">landed</td><td class="blocked">blocked</td><td class="blocked">blocked</td><td class="blocked">contained</td></tr>
+    <tr><td><code>arbitrary_write</code> — write outside the grant</td><td class="landed">landed</td><td class="blocked">blocked</td><td class="blocked">blocked</td><td class="blocked">contained</td></tr>
+  </tbody>
+</table>
+<p class="note">The single CRS miss is the argument: the decimal spelling of the same
+destination reached the collector at PL1. Raising paranoia to PL2 caught it — at a
+false-positive cost we did not measure, since two benign requests prove nothing about that.
+An attack that does not land unprotected is counted <strong>VOID</strong>, never as a pass.</p>
+
+<h2><span class="num">P3</span>A real application, not our fixture</h2>
+<p class="lead">DVWS-node (GPL-3.0, maintained) in its own Docker stack: Mongo, MySQL, the app.
+Two genuine sinks — an authenticated <code>exec()</code> behind a normal login, and an
+unauthenticated XML-RPC fetch. The Vorynex column is <strong>Tier 1 armed on the running
+container's cgroup</strong>: no restart.</p>
+<table>
+  <thead><tr>
+    <th>Scenario</th><th>Bare</th><th>CRS PL1</th><th>CRS PL2</th><th>CRS PL1 tuned</th><th>Vorynex Tier 1</th>
+  </tr></thead>
+  <tbody>
+    <tr><td><code>rce_exec</code> — <code>id;touch …</code> via <code>/api/v2/sysinfo/:command</code></td><td class="landed">landed</td><td class="landed">landed</td><td class="landed">landed</td><td class="landed">landed</td><td class="blocked">contained</td></tr>
+    <tr><td><code>ssrf_uptime</code> — XML-RPC fetch to the collector</td><td class="landed">landed</td><td class="blocked">blocked*</td><td class="blocked">blocked*</td><td class="blocked">blocked*</td><td class="blocked">contained</td></tr>
+    <tr><td><code>benign_login</code> — <code>admin</code> login</td><td class="landed">landed</td><td class="landed">landed</td><td class="landed">landed</td><td class="landed">landed</td><td class="landed">landed</td></tr>
+    <tr><td><code>benign_info</code> — <code>GET /api/v1/info</code></td><td class="landed">landed</td><td class="landed">landed</td><td class="landed">landed</td><td class="landed">landed</td><td class="landed">landed</td></tr>
+  </tbody>
+</table>
+<p class="note">* Blocked by Coraza's <em>body-parsing</em> rule, not by an SSRF rule: CRS 4.0 has
+no XML body processor, so the request dies before any attack signature is evaluated. The
+tuned arm adds the JSON/XML processors a real deployment configures — the block persists for
+the same reason. Meanwhile the command injection passed every configuration; the audit shows
+<em>no CRS rule matched it at all</em>, because the payload is a path parameter and CRS scans
+arguments and a normalised URI.</p>
+<p class="note">Tier 1 kept the application serving: both benign requests returned 200 inside the
+armed window, and the app was healthy after the hooks detached. The XML-RPC reply still said
+<code>"Checking uptime for: …"</code> while the collector logged zero hits — which is why the
+effect, not the response, is what gets measured.</p>
+
+<h2><span class="num">P4</span>What each defence costs</h2>
+<p class="lead">Same endpoint, arms interleaved round by round. Load is open-loop at a fixed
+200 rps, so a stall cannot be hidden by the generator waiting for it. CPU and memory are read
+from <code>/proc</code>; the proxy's own cost is counted in its arm.</p>
+<table>
+  <thead><tr>
+    <th>Arm</th><th class="num">p50 ms</th><th class="num">p95 ms</th><th class="num">p99 ms</th>
+    <th class="num">CPU ms/req</th><th class="num">RSS MB</th><th class="num">startup ms</th>
+  </tr></thead>
+  <tbody>
+    <tr><td>bare</td><td class="num">0.60</td><td class="num">0.92</td><td class="num">1.67</td><td class="num">0.38</td><td class="num">71.6</td><td class="num">86</td></tr>
+    <tr><td>Vorynex (Tier 0)</td><td class="num">0.59</td><td class="num">1.04</td><td class="num">1.58</td><td class="num">0.37</td><td class="num">71.6</td><td class="num">88</td></tr>
+    <tr><td>OWASP CRS (in path)</td><td class="num">2.09</td><td class="num">3.60</td><td class="num">5.59</td><td class="num">2.31</td><td class="num">132.7</td><td class="num">176</td></tr>
+  </tbody>
+</table>
+
+<h3>p50 latency, drawn to scale</h3>
+<div class="bar-row"><div class="note">bare</div><div class="bar-track"><div class="bar bare" style="width:29%"></div></div><div class="bar-val">0.60 ms</div></div>
+<div class="bar-row"><div class="note">Vorynex</div><div class="bar-track"><div class="bar vx" style="width:28%"></div></div><div class="bar-val">0.59 ms</div></div>
+<div class="bar-row"><div class="note">CRS</div><div class="bar-track"><div class="bar crs" style="width:100%"></div></div><div class="bar-val">2.09 ms</div></div>
+
+<button class="toggle" id="deltas">Show paired per-round deltas</button>
+<div id="deltabox" class="hidden">
+<pre>vs bare, same round (median delta | how often slower)
+
+vorynex     p50  -0.024 ms  | slower in 3/7 rounds
+            p95  +0.057 ms  | slower in 4/7
+            p99  -0.090 ms  | slower in 2/7
+
+crs         p50  +1.511 ms  | slower in 7/7 rounds
+            p95  +2.679 ms  | slower in 7/7
+            p99  +4.270 ms  | slower in 7/7
+
+noise floor p50  +0.026 ms  | slower in 5/7 rounds   (bare measured twice)
+            p95  +0.081 ms  | slower in 4/7
+            p99  -0.138 ms  | slower in 2/7</pre>
+<p class="note">Tier 0's deltas are mixed-sign, exactly like two bare runs compared to each
+other — so at this load the sandbox is not a measurable cost. CRS is slower in every round at
+every percentile. A delta that is not consistently one-signed is noise, not a result.</p>
+</div>
+
+<h2>Limits — what this does not show</h2>
+<div class="limits">
+<ul>
+  <li><strong>The WAF arm is a stand-in.</strong> Coraza + OWASP CRS, not Cloudflare or Vercel:
+    their free tiers cannot run the managed rulesets that matter, and bypasses are
+    engine-and-framework specific. No commercial WAF is being described.</li>
+  <li><strong>Two scenarios on the real app.</strong> XXE, NoSQL injection and SSTI exist in it
+    and are not measured. The Tier 1 hooks were chosen by hand for these two attacks, not
+    derived automatically.</li>
+  <li><strong>Tier 0 is the tier measured for cost.</strong> Tier 1's hooks are per syscall —
+    they are the arm most likely to show overhead, and they are not measured here. No
+    throughput ceiling is claimed for any arm.</li>
+  <li><strong>Small corpora.</strong> 7 attacks and 2 benign requests on the fixture; 2 and 2 on
+    the real app. No false-positive rate is claimed; that needs a public benign corpus.</li>
+  <li><strong>One machine</strong>, shared, over loopback, no TLS, with a trivial endpoint, at
+    200 rps, 7 rounds.</li>
+  <li>Out of scope by design: in-process RCE detection, root attackers, kernel exploits,
+    serverless, application-level authorisation (IDOR/BOLA), and exfiltration over an egress
+    the policy allows.</li>
+</ul>
+</div>
+
+<h2>Reproduce</h2>
+<pre>make proof        # P1+P2  — bare vs OWASP CRS vs Vorynex Tier 0   (also a CI job)
+make proof-real   # P3     — DVWS-node in Docker; Tier 1 column needs root
+make bench        # P4     — overhead, interleaved rounds, paired deltas</pre>
+<p class="note">Each run writes raw evidence to <code>tests/proof/evidence*/&lt;stamp&gt;/</code>:
+per-arm JSONL, the CRS audit log with rule ids, <code>summary.json</code>, and an
+<code>env.json</code> recording the git SHA, kernel, and Landlock ABI. Full write-ups:
+<code>docs/PROOF.md</code>, <code>docs/BENCHMARKS.md</code>, <code>docs/PERFORMANCE.md</code>.</p>
+
+<footer>
+  Vorynex — runtime containment. Enforcement is local and out of the request path; a
+  compromise is contained rather than assumed to be blocked at the door.
+</footer>
+
+</div>
+<script>
+  (function () {
+    var btn = document.getElementById('deltas');
+    var box = document.getElementById('deltabox');
+    btn.addEventListener('click', function () {
+      var hidden = box.classList.toggle('hidden');
+      btn.textContent = hidden ? 'Show paired per-round deltas' : 'Hide paired per-round deltas';
+    });
+  })();
+</script>
+</body>
+</html>
