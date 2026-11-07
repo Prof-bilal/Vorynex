@@ -70,10 +70,70 @@ Benign controls (`/api/echo`, a legitimate file read) passed in every arm.
 ## Reproduce
 
 ```bash
-make proof                       # all three arms, writes evidence/<stamp>/
+make proof                       # P1+P2 arms, writes evidence/<stamp>/
 PROOF_AUTHORIZED=1 tests/proof/run-proof.sh
 ```
 
 Evidence per run: `arm-a.jsonl`, `arm-b-pl1.jsonl`, `arm-b-pl2.jsonl`,
 `arm-c.jsonl`, `waf-pl{1,2}-audit.jsonl` (rule ids), `summary.json`,
 `env.json` (git SHA, kernel, Landlock ABI, node, CRS pin), `manifest.sha256`.
+
+## P3 — the same comparison against a real application
+
+Target: **`snoopysecurity/dvws-node`** (GPL-3.0, maintained) in its own Docker
+stack — a real third-party app, not our fixture. Two genuine sinks:
+
+- `GET /api/v2/sysinfo/:command` → `exec(req.params.command + " -a")`, behind a
+  normal login (`/api/v2/login`, seeded `admin/letmein`), i.e. authenticated RCE
+- `POST /xmlrpc` → `dvws.CheckUptime` fetches a caller-supplied URL, no auth
+- (also present: XXE file read, `$where` NoSQL injection, SSTI — not yet in the
+  corpus)
+
+```bash
+make proof-real        # Docker; ~2.5 GB on first run; not part of CI
+```
+
+```
+Attacks 2: landed bare 2, VOID 0. Controls on bare: ok.
+```
+
+| Scenario | Bare | CRS PL1 | CRS PL2 | CRS PL1 tuned | Vorynex Tier 1 |
+|---|---|---|---|---|---|
+| `rce_exec` — `id;touch /proof/rce-marker` via `sysinfo` | landed | **landed** | **landed** | **landed** | n/a¹ |
+| `ssrf_uptime` — XML-RPC fetch to the collector | landed | blocked² | blocked² | blocked² | n/a¹ |
+| `benign_login` — `admin/letmein` | landed | landed | landed | landed | n/a¹ |
+| `benign_info` — `GET /api/v1/info` | landed | landed | landed | landed | n/a¹ |
+
+¹ The Tier 1 column needs root: it arms BPF hooks on the running container's
+cgroup. Run `sudo tests/proof/real/run-real.sh` (or `sudo make proof-real`).
+² Blocked by rule **200002** — Coraza's *body-parsing* rule, because CRS 4.0
+has no XML body processor. The request never reached the app, so the SSRF was
+prevented, but no SSRF rule matched: it is a blunt instrument that would also
+block legitimate XML APIs (the "tuned" arm adds JSON/XML body processors and the
+block persists).
+
+Findings:
+
+1. **An `exec()` injection in a path parameter passes every CRS configuration
+   we tried** — stock and tuned, PL1 and PL2 — and the marker was written. The
+   payload arrives as `/api/v2/sysinfo/id%3Btouch%20%2Fproof%2Frce-marker`; no
+   CRS rule matched it at all (`app_rules_matched=[]` in the audit). CRS scans
+   arguments and a normalised URI, and this injection is neither.
+2. **Enabling a body processor changes the reason for a block, not the
+   protection.** Both the stock and tuned arms stop the XML-RPC request, but
+   only because the body cannot be parsed.
+3. **No false positives here once the harness was correct.** The first run
+   showed CRS 403-ing the login. That was *our* bug: the attacker sent the body
+   with chunked encoding, so the WAF could not read it and raised a body error.
+   Fixed in the harness; the false positive disappeared. Recording it because
+   the same mistake would have produced a flattering, wrong result in the other
+   direction.
+
+### Limits of P3
+
+- Two scenarios so far (RCE + SSRF); XXE, NoSQL injection and SSTI are in the
+  app and not yet measured.
+- Tier 1 column requires root and is not yet produced.
+- DVWS-node is a deliberately vulnerable teaching app. It is *real third-party
+  code*, but it is not a production workload; a production app has far more
+  allowed behaviour, which cuts both ways.

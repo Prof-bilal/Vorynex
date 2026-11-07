@@ -46,6 +46,7 @@ func main() {
 	mode := flag.String("mode", "blocking", "blocking or detection")
 	paranoia := flag.Int("paranoia", 1, "paranoia level 1..4")
 	auditPath := flag.String("audit", "", "JSONL audit log path")
+	extra := flag.String("extra", "", "file of extra directives appended to the config")
 	flag.Parse()
 
 	if *mode != "blocking" && *mode != "detection" {
@@ -69,6 +70,16 @@ SecResponseBodyAccess Off
 SecAction "id:900000,phase:1,nolog,pass,t:none,setvar:tx.blocking_paranoia_level=%d"
 SecAction "id:900001,phase:1,nolog,pass,t:none,setvar:tx.detection_paranoia_level=%d"
 `, engine, *paranoia, *paranoia)
+
+	// Deployments add body processors and exclusions here; CRS assumes the
+	// server parses its own body formats.
+	if *extra != "" {
+		b, err := os.ReadFile(*extra)
+		if err != nil {
+			log.Fatalf("extra directives: %v", err)
+		}
+		directives += string(b) + "\n"
+	}
 
 	waf, err := coraza.NewWAF(
 		coraza.NewWAFConfig().

@@ -1,9 +1,10 @@
 # PROOF.md — containment proof
 
 **Status: P1 (containment) and P2 (CRS comparison) complete on a controlled
-target. P3 (a real application) and P4 (performance) pending.** This file is the
-living report; a table only appears here once the run that produced it exists in
-`tests/proof/evidence/`.
+target; P3 (a real third-party app) has bare + CRS arms done and the Vorynex
+Tier 1 column pending a privileged run; P4 (performance) pending.** This file is
+the living report; a table only appears here once the run that produced it
+exists in `tests/proof/evidence/` or `tests/proof/evidence-real/`.
 
 ## The claim (pre-registered)
 
@@ -62,12 +63,16 @@ release blocker.
 - **The WAF arm is a stand-in.** Coraza + OWASP CRS 4.0, not Cloudflare or
   Vercel: their Free/Hobby tiers cannot run the managed rulesets that matter, and
   bypasses are WAF×framework specific. No claim about a commercial WAF is made.
-- **The P1/P2 target is ours, not someone else's code.** P3 adds a real,
-  maintained app (DVWS-node, GPL-3.0) with a genuine `exec` sink and an
-  unauthenticated metadata SSRF.
-- **The corpus is small (7 attacks, 2 benign requests).** No TNR/false-positive
-  rate is claimed from it; that needs a public benign corpus.
-- **Tier 0 only.** Tier 1 (eBPF-LSM) is host-only and not measured here.
+- **The real-app arm (P3) covers two scenarios so far.** On DVWS-node, CRS at
+  PL1/PL2 (stock and tuned) let an authenticated `exec()` injection through —
+  and only "blocked" XML-RPC by failing to parse the body. XXE, NoSQL injection
+  and SSTI are present in that app and not yet measured. Its Vorynex column
+  needs root (Tier 1 live attach) and has not been produced.
+- **The corpus is small.** 7 attacks on our fixture, 2 on the real app; no
+  TNR/false-positive rate is claimed from either. A real FP study needs a
+  public benign corpus.
+- **Tier 0 only** on our fixture. Tier 1 (eBPF-LSM) is measured on the real app
+  once armed, and nowhere else.
 - **No performance numbers yet.** `vorynex bench` (P4) reports p50/p95/p99,
   CPU/RSS and startup delta, interleaved A/B.
 - Not covered by design: in-process RCE detection, root attackers, kernel

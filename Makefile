@@ -41,6 +41,12 @@ context:
 proof:
 	PROOF_AUTHORIZED=1 tests/proof/run-proof.sh
 
+# P3: the same comparison against a real third-party app (DVWS-node) in Docker.
+# Pulls ~2.5 GB on first run, so it is not part of CI. The Vorynex Tier 1 column
+# needs root (it attaches BPF hooks to the running container's cgroup).
+proof-real:
+	tests/proof/real/run-real.sh
+
 clean:
 	go clean ./...
-	rm -rf tests/security-lab/evidence tests/proof/evidence
+	rm -rf tests/security-lab/evidence tests/proof/evidence tests/proof/evidence-real

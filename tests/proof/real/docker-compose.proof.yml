@@ -1,0 +1,25 @@
+# Overlay for the P3 proof. Applied on top of DVWS-node's own docker-compose.yml:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.proof.yml up -d --build
+#
+# Changes, and why:
+#   * the app is published on loopback only (upstream exposes 0.0.0.0:80)
+#   * a `collector` sibling records SSRF callbacks into a host-visible directory,
+#     because the container cannot reach services on the host's loopback
+#   * `shared/` is bind-mounted at /proof so the harness can check effects on the
+#     host instead of trusting the app's HTTP response
+services:
+  web:
+    ports:
+      - "127.0.0.1:3280:80"
+    volumes:
+      - ./shared:/proof
+
+  collector:
+    image: dvws-node-web
+    command: >
+      node -e "const http=require('http'),fs=require('fs');
+      http.createServer((req,res)=>{fs.appendFileSync('/proof/hits.log',req.url+'\n');
+      res.end('DECOY-COLLECTOR-NOT-REAL')}).listen(3290,'0.0.0.0')"
+    volumes:
+      - ./shared:/proof
