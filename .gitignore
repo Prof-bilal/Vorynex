@@ -18,6 +18,7 @@ pnpm-lock.yaml
 # Proof benchmark evidence (regenerate with `make proof`)
 tests/proof/evidence/
 tests/proof/evidence-real/
+tests/proof/evidence-bench/
 
 # Local runtime state
 *.log

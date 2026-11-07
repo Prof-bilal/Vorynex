@@ -1,9 +1,10 @@
 # PROOF.md — containment proof
 
-**Status: P1 and P2 complete on a controlled target; P3 complete on a real
-third-party app (bare / CRS / Vorynex Tier 1); P4 (performance) pending.** This
-file is the living report; a table only appears here once the run that produced
-it exists in `tests/proof/evidence/` or `tests/proof/evidence-real/`.
+**Status: P1–P4 complete.** Containment and the WAF comparison on a controlled
+target (P1/P2), the same on a real third-party app with Tier 1 armed on a
+running container (P3), and enforcement overhead (P4). This file is the living
+report; a table only appears here once the run that produced it exists in
+`tests/proof/evidence*/`.
 
 ## The claim (pre-registered)
 
@@ -74,8 +75,12 @@ release blocker.
   public benign corpus.
 - **Tier 0 only** on our fixture. Tier 1 (eBPF-LSM) is measured on the real app
   once armed, and nowhere else.
-- **No performance numbers yet.** `vorynex bench` (P4) reports p50/p95/p99,
-  CPU/RSS and startup delta, interleaved A/B.
+- **No throughput ceiling, and Tier 1 cost is not measured.** P4
+  ([PERFORMANCE.md](PERFORMANCE.md)) shows Tier 0 is below the noise floor of the
+  measurement (paired deltas mixed-sign, like two bare runs compared to each
+  other) while the request-path filter costs 2.5–3.5× latency and ~6× CPU in
+  7/7 rounds. Tier 1 (per-syscall hooks) is *not* measured — any "free" claim is
+  about Tier 0 only, on one shared machine, over loopback, at 200 rps.
 - Not covered by design: in-process RCE detection, root attackers, kernel
   exploits, serverless, app-level authz (IDOR/BOLA), exfiltration over an
   *allowed* egress.

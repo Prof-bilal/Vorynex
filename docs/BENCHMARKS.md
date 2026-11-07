@@ -3,6 +3,10 @@
 Measured, not asserted. Produced by `make proof`; the run's raw evidence is in
 `tests/proof/evidence/<stamp>/` (gitignored, uploaded as a CI artifact).
 
+Enforcement **cost** (latency, CPU, memory, startup) is a separate measurement:
+[PERFORMANCE.md](PERFORMANCE.md) — Tier 0 sits below its own noise floor, the
+request-path filter costs 2.5–3.5× latency and ~6× CPU.
+
 ## What was compared
 
 | Arm | What it is |

@@ -47,6 +47,11 @@ proof:
 proof-real:
 	tests/proof/real/run-real.sh
 
+# P4: overhead of the enforcement tiers vs the workload bare and vs a WAF in the
+# request path. Interleaved rounds, open-loop load, paired deltas.
+bench:
+	tests/proof/bench/run-bench.sh
+
 clean:
 	go clean ./...
-	rm -rf tests/security-lab/evidence tests/proof/evidence tests/proof/evidence-real
+	rm -rf tests/security-lab/evidence tests/proof/evidence tests/proof/evidence-real tests/proof/evidence-bench
