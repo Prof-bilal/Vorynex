@@ -210,8 +210,9 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
 - [ ] Proof on a **real application** (DVWS-node): done — bare, OWASP CRS
       (PL1/PL2 stock + tuned) and Vorynex Tier 1 live attach, in
       `docs/BENCHMARKS.md`. CRS let the `exec()` injection through at every
-      setting; Tier 1 contained both attacks without restarting the container.
-      Remaining: more scenarios (XXE, NoSQLi, SSTI) and `vorynex bench` numbers
+      setting; Tier 1 contained 2/3 and missed the in-process template
+      evaluation, which CRS blocked by signature. Complementary coverage, stated
+      as such. Remaining: XXE and NoSQLi scenarios, and `vorynex bench` numbers
 - [x] **Enforcement overhead** (`make bench`, `docs/PERFORMANCE.md`): interleaved
       rounds, open-loop load, paired per-round deltas. Tier 0 is below its own
       noise floor; the CRS proxy costs +1.5 ms p50 / +2.7 ms p95 / +4.3 ms p99

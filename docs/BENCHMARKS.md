@@ -100,14 +100,15 @@ PROOF_SUDO_PASSWORD=... make proof-real
 ```
 
 ```
-Attacks 2: landed bare 2, VOID 0. Controls on bare: ok.
-Vorynex Tier 1 contained 2/2.
+Attacks 3: landed bare 3, VOID 0. Controls on bare: ok.
+Vorynex Tier 1 contained 2/3.
 ```
 
 | Scenario | Bare | CRS PL1 | CRS PL2 | CRS PL1 tuned | Vorynex Tier 1 |
 |---|---|---|---|---|---|
 | `rce_exec` — `id;touch /proof/rce-marker` via `sysinfo` | landed | **landed** | **landed** | **landed** | **blocked** |
 | `ssrf_uptime` — XML-RPC fetch to the collector | landed | blocked² | blocked² | blocked² | **blocked** |
+| `ssti_env` — `${process.env.SSTI_CANARY}` via `greeter` | landed | **blocked**³ | **blocked**³ | **blocked**³ | **landed** |
 | `benign_login` — `admin/letmein` | landed | landed | landed | landed | landed |
 | `benign_info` — `GET /api/v1/info` | landed | landed | landed | landed | landed |
 
@@ -116,6 +117,11 @@ has no XML body processor. The request never reached the app, so the SSRF was
 prevented, but no SSRF rule matched: it is a blunt instrument that would also
 block legitimate XML APIs (the "tuned" arm adds JSON/XML body processors and the
 block persists).
+
+³ Blocked by rule **932130**, which matches the *shape* `${…}` / `$(…)` in an
+argument. It is a signature on how the payload looks, not an understanding of
+what it does — which is precisely why it is listed next to the row Vorynex
+misses.
 
 **How the Tier 1 column is produced** — the app is never restarted. The harness
 resolves the running container's cgroup, then runs
@@ -148,6 +154,14 @@ Findings:
 4. **Enabling a body processor changes the reason for a block, not the
    protection.** Both stock and tuned arms stop the XML-RPC request, but only
    because the body cannot be parsed.
+5. **The two approaches cover different classes, and neither covers everything.**
+   The in-process template evaluation is *blocked by CRS and not contained by
+   Vorynex*: it runs inside the application process, so there is no exec, no file
+   open and no connection for a runtime hook to deny. The exec injection is the
+   exact mirror — contained by Vorynex, missed by CRS at every setting. A
+   runtime boundary is not a substitute for fixing an injection sink, and a
+   signature engine is not a substitute for containing what runs after one is
+   exploited. Claiming either alone would be wrong.
 
 ### Two bugs this harness had (and why they are recorded)
 
@@ -162,10 +176,15 @@ Findings:
 
 ### Limits of P3
 
-- Two scenarios so far (RCE + SSRF); XXE, NoSQL injection and SSTI are present
-  in the app and not yet measured.
+- Three scenarios (RCE, SSRF, in-process template evaluation). XXE and NoSQL
+  injection are present in the app and not yet measured.
+- **In-process data flows are out of scope for the measured hooks.** The SSTI row
+  is the demonstration: reading an environment variable inside the app process
+  produces no syscall the boundary can see. Containing that needs a different
+  control (fix the sink, or an in-process policy) — it is a limit, not a bug in
+  the hooks.
 - DVWS-node is deliberately vulnerable teaching code. It is real third-party
   software, but not a production workload; a production app allows far more
   behaviour, which cuts both ways.
 - The Tier 1 column requires root. It is one hook set chosen by hand for these
-  two attacks, not an automatically derived policy.
+  three attacks, not an automatically derived policy.

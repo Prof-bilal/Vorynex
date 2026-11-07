@@ -85,6 +85,8 @@ fi
 
 export SHARED="$DVWS/shared"
 export COLLECTOR_URL="http://collector:3290/probe"
+# Must match the decoy set in docker-compose.proof.yml.
+export SSTI_CANARY="SSTI-CANARY-NOT-REAL-7f3a"
 
 reset_effects() { rm -f "$DVWS/shared/rce-marker"; : > "$DVWS/shared/hits.log"; }
 

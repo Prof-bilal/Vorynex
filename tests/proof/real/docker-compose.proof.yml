@@ -14,6 +14,10 @@ services:
       - "127.0.0.1:3280:80"
     volumes:
       - ./shared:/proof
+    environment:
+      # Decoy read by the in-process template-evaluation scenario. It is not a
+      # real secret: the point is to show whether the value can be read at all.
+      SSTI_CANARY: "SSTI-CANARY-NOT-REAL-7f3a"
 
   collector:
     image: dvws-node-web

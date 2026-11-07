@@ -101,9 +101,10 @@
   </div>
   <div class="card">
     <div class="k">Real app · P3</div>
-    <div class="v">0 / 4</div>
-    <div class="d">CRS configurations stopped the authenticated <code>exec()</code> injection
-      (PL1, PL2, stock and tuned). Live Tier 1 contained it.</div>
+    <div class="v">2 / 3</div>
+    <div class="d">attacks contained by live Tier 1. The third row is the honest
+      one: in-process template evaluation, which CRS blocked by signature and
+      Tier 1 cannot see.</div>
   </div>
   <div class="card">
     <div class="k">Cost · P4</div>
@@ -147,6 +148,7 @@ container's cgroup</strong>: no restart.</p>
   <tbody>
     <tr><td><code>rce_exec</code> — <code>id;touch …</code> via <code>/api/v2/sysinfo/:command</code></td><td class="landed">landed</td><td class="landed">landed</td><td class="landed">landed</td><td class="landed">landed</td><td class="blocked">contained</td></tr>
     <tr><td><code>ssrf_uptime</code> — XML-RPC fetch to the collector</td><td class="landed">landed</td><td class="blocked">blocked*</td><td class="blocked">blocked*</td><td class="blocked">blocked*</td><td class="blocked">contained</td></tr>
+    <tr><td><code>ssti_env</code> — <code>${process.env.SSTI_CANARY}</code> via <code>/api/v2/greeter</code></td><td class="landed">landed</td><td class="blocked">blocked**</td><td class="blocked">blocked**</td><td class="blocked">blocked**</td><td class="landed">landed</td></tr>
     <tr><td><code>benign_login</code> — <code>admin</code> login</td><td class="landed">landed</td><td class="landed">landed</td><td class="landed">landed</td><td class="landed">landed</td><td class="landed">landed</td></tr>
     <tr><td><code>benign_info</code> — <code>GET /api/v1/info</code></td><td class="landed">landed</td><td class="landed">landed</td><td class="landed">landed</td><td class="landed">landed</td><td class="landed">landed</td></tr>
   </tbody>
@@ -157,6 +159,14 @@ tuned arm adds the JSON/XML processors a real deployment configures — the bloc
 the same reason. Meanwhile the command injection passed every configuration; the audit shows
 <em>no CRS rule matched it at all</em>, because the payload is a path parameter and CRS scans
 arguments and a normalised URI.</p>
+<p class="note">** Blocked by rule 932130, which matches the <em>shape</em> <code>${…}</code> in
+an argument — a signature on how the payload looks. That is the mirror of the row above it, and
+it is the most useful line in this report: <strong>the two approaches cover different
+classes.</strong> An in-process template evaluation produces no exec, no file open and no
+connection, so a runtime boundary has nothing to deny; an <code>exec()</code> injection in a
+path parameter produces no signature CRS recognises. A runtime boundary is not a substitute for
+fixing an injection sink, and a signature engine is not a substitute for containing what runs
+after one is exploited.</p>
 <p class="note">Tier 1 kept the application serving: both benign requests returned 200 inside the
 armed window, and the app was healthy after the hooks detached. The XML-RPC reply still said
 <code>"Checking uptime for: …"</code> while the collector logged zero hits — which is why the
@@ -209,9 +219,10 @@ every percentile. A delta that is not consistently one-signed is noise, not a re
   <li><strong>The WAF arm is a stand-in.</strong> Coraza + OWASP CRS, not Cloudflare or Vercel:
     their free tiers cannot run the managed rulesets that matter, and bypasses are
     engine-and-framework specific. No commercial WAF is being described.</li>
-  <li><strong>Two scenarios on the real app.</strong> XXE, NoSQL injection and SSTI exist in it
-    and are not measured. The Tier 1 hooks were chosen by hand for these two attacks, not
-    derived automatically.</li>
+  <li><strong>Three scenarios on the real app</strong>, and one of them is a
+    measured failure: in-process data flows are out of scope for the hooks that
+    were measured. XXE and NoSQL injection remain untested. The Tier 1 hooks were
+    chosen by hand for these three attacks, not derived automatically.</li>
   <li><strong>Tier 0 is the tier measured for cost.</strong> Tier 1's hooks are per syscall —
     they are the arm most likely to show overhead, and they are not measured here. No
     throughput ceiling is claimed for any arm.</li>

@@ -23,7 +23,7 @@ Four phases, all reproducible from this repo:
 |---|---|---|---|---|
 | **P1** | this repo's fixture | bare vs Vorynex Tier 0 | 5/5 attacks land bare, 5/5 contained; benign unaffected | below |
 | **P2** | this repo's fixture | + OWASP CRS PL1/PL2 | CRS blocks 6/7 at PL1, 7/7 at PL2; the payload it missed still landed | [BENCHMARKS.md](BENCHMARKS.md) |
-| **P3** | **DVWS-node** (real third-party app, Docker) | bare / CRS (PL1, PL2, tuned) / Vorynex Tier 1 live attach | CRS let the authenticated `exec()` injection through at every setting; one Tier 1 hook set contained 2/2 without restarting the container | [BENCHMARKS.md](BENCHMARKS.md#p3--the-same-comparison-against-a-real-application) |
+| **P3** | **DVWS-node** (real third-party app, Docker) | bare / CRS (PL1, PL2, tuned) / Vorynex Tier 1 live attach | CRS let the authenticated `exec()` injection through at every setting; Tier 1 contained 2/3. The in-process template-evaluation row is the mirror: CRS blocked it, Tier 1 could not see it | [BENCHMARKS.md](BENCHMARKS.md#p3--the-same-comparison-against-a-real-application) |
 | **P4** | the same endpoint | bare / Tier 0 / CRS in the request path | Tier 0 below its own noise floor; CRS +1.5 ms p50 and ~6× CPU, slower in 7/7 rounds | [PERFORMANCE.md](PERFORMANCE.md) |
 
 `make proof` → `tests/proof/evidence/<stamp>/` (P1+P2, also a CI job):
@@ -85,13 +85,16 @@ release blocker.
 - **The WAF arm is a stand-in.** Coraza + OWASP CRS 4.0, not Cloudflare or
   Vercel: their Free/Hobby tiers cannot run the managed rulesets that matter, and
   bypasses are WAF×framework specific. No claim about a commercial WAF is made.
-- **The real-app arm (P3) covers two scenarios so far.** On DVWS-node, CRS at
-  PL1/PL2 (stock and tuned) let an authenticated `exec()` injection through, and
-  only "blocked" the XML-RPC SSRF by failing to parse the body; one Tier 1 hook
-  set (deny exec, block connect) contained both without restarting the container
-  or breaking its normal requests. XXE, NoSQL injection and SSTI are present in
-  that app and not yet measured, and the Tier 1 hooks were chosen by hand, not
-  derived from the observed behaviour.
+- **The real-app arm (P3) covers three scenarios.** On DVWS-node, CRS at PL1/PL2
+  (stock and tuned) let an authenticated `exec()` injection through and only
+  "blocked" the XML-RPC SSRF by failing to parse the body; one Tier 1 hook set
+  contained those two without restarting the container. The third scenario is
+  deliberately unflattering: an in-process template evaluation
+  (`${process.env.X}`) is blocked by CRS's `${…}` signature and **not** contained
+  by Tier 1, because nothing observable happens — no exec, no file open, no
+  connection. **In-process data flows are out of scope for the measured hooks.**
+  XXE and NoSQL injection remain unmeasured, and the Tier 1 hooks were chosen by
+  hand, not derived from the observed behaviour.
 - **The corpus is small.** 7 attacks on our fixture, 2 on the real app; no
   TNR/false-positive rate is claimed from either. A real FP study needs a
   public benign corpus.

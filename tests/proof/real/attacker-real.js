@@ -140,7 +140,22 @@ async function main() {
     }
   ));
 
-  // 3. Controls: the app must keep working under enforcement.
+  // 3. Unauthenticated template evaluation. The greeter compiles the query value
+  //    into a template literal, so ${process.env.X} runs in-process. No process,
+  //    file or network hook can observe that — which is exactly why it is here:
+  //    it measures the edge of what runtime containment covers.
+  const canary = process.env.SSTI_CANARY || 'SSTI-CANARY-NOT-REAL-7f3a';
+  results.push(await run(
+    'ssti_env',
+    'GET /api/v2/greeter?name=${process.env.SSTI_CANARY} (unauthenticated)',
+    async () => {
+      const payload = '${process.env.SSTI_CANARY}';
+      const response = await request('GET', `/api/v2/greeter?name=${encodeURIComponent(payload)}`);
+      return { response, landed: String(response.body).includes(canary) };
+    }
+  ));
+
+  // 4. Controls: the app must keep working under enforcement.
   results.push(await run('benign_login', `POST /api/v2/login ${CRED_USER}`, async () => {
     const { res, token } = await login();
     return { response: res, landed: res.status === 200 && Boolean(token) };
