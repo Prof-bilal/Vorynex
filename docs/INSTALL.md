@@ -20,32 +20,49 @@ what is available and `status` reports which tier it is actually using.
 
 ## Install
 
-From a release tarball (what a user downloads):
+Build a release and install it (works today, no published artifacts required):
 
 ```bash
-curl -LO https://github.com/Prof-bilal/Vorynex/releases/download/v0.1.0/vorynex_0.1.0_linux_amd64.tar.gz
-curl -LO https://github.com/Prof-bilal/Vorynex/releases/download/v0.1.0/checksums.txt
-sha256sum -c checksums.txt --ignore-missing
-tar -xzf vorynex_0.1.0_linux_amd64.tar.gz
-sudo ./vorynex_0.1.0_linux_amd64/install.sh
-```
-
-From a checkout:
-
-```bash
-make release          # dist/*.tar.gz + checksums.txt, or:
-sudo ./install.sh     # builds from the checkout and installs
-```
-
-Non-root, self-contained (everything under one prefix, no systemd):
-
-```bash
-./install.sh --prefix "$HOME/vorynex" --no-cloud
+make release                              # dist/*.tar.gz + checksums.txt
+sudo ./install.sh                          # builds from the checkout instead
+# or install a specific tarball into a prefix:
+./install.sh --from dist/vorynex_0.1.0_linux_amd64.tar.gz --prefix "$HOME/vorynex" --no-cloud
 ```
 
 `install.sh` is idempotent and never overwrites configuration you already have.
 Options: `--prefix DIR`, `--from TARBALL`, `--no-cloud`, `--enable` (enable the
 cloud service), `--uninstall`.
+
+Verify what you downloaded before installing it:
+
+```bash
+sha256sum -c checksums.txt --ignore-missing
+```
+
+### For maintainers: publishing a release
+
+There are no published releases yet, so no download URL exists. When you decide
+to publish one, the artifacts `make release` produces are exactly what the
+install path above consumes:
+
+```bash
+git tag "v$(cat VERSION)"
+git push origin "v$(cat VERSION)"
+gh release create "v$(cat VERSION)" dist/*.tar.gz dist/checksums.txt \
+  --title "v$(cat VERSION)" --notes-file docs/RELEASE_NOTES.md   # or --generate-notes
+```
+
+After that, `https://github.com/Prof-bilal/Vorynex/releases/latest/download/<tarball>`
+is a valid URL and the curl-and-install form works:
+
+```bash
+V="$(curl -fsSL https://api.github.com/repos/Prof-bilal/Vorynex/releases/latest \
+     | python3 -c 'import json,sys;print(json.load(sys.stdin)["tag_name"])')"
+curl -fLO "https://github.com/Prof-bilal/Vorynex/releases/download/$V/vorynex_${V#v}_linux_amd64.tar.gz"
+curl -fLO "https://github.com/Prof-bilal/Vorynex/releases/download/$V/checksums.txt"
+sha256sum -c checksums.txt --ignore-missing
+tar -xzf "vorynex_${V#v}_linux_amd64.tar.gz" && sudo "./vorynex_${V#v}_linux_amd64/install.sh"
+```
 
 ### What it puts where
 
