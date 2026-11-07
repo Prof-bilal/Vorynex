@@ -175,7 +175,23 @@ if [[ -n "$SUDO" ]]; then
   APP_PID=$!
   sleep 4
   cat "$OUT/tier1.log"
-  node "$HERE/attacker-real.js" "http://127.0.0.1:$APP_PORT" "$OUT/arm-c.jsonl" | tee "$OUT/arm-c.log"
+
+  # Assert every hook is actually in place by reading the attach's own log. An
+  # attach that armed nothing (empty cgroup), or that armed and then returned
+  # early because a later flag failed (running the deferred Close), leaves the
+  # workload unprotected — and that looks exactly like a containment failure.
+  armed_ok=1
+  for want in "armed for cgroup" "deny exec" "block connect to"; do
+    grep -q "$want" "$OUT/tier1.log" || { echo "-- MISSING from tier1.log: $want --" >&2; armed_ok=0; }
+  done
+  kill -0 "$APP_PID" 2>/dev/null || { echo "-- the attach exited before the attacks ran --" >&2; armed_ok=0; }
+
+  if [[ "$armed_ok" != "1" ]]; then
+    echo "-- ERROR: tier 1 did not arm fully; arm C is not a measurement --" >&2
+    : > "$OUT/arm-c.jsonl"
+  else
+    node "$HERE/attacker-real.js" "http://127.0.0.1:$APP_PORT" "$OUT/arm-c.jsonl" | tee "$OUT/arm-c.log"
+  fi
   # Let the attach reach its deadline and detach itself rather than killing it,
   # so the hooks are never left armed on a live workload.
   wait "$APP_PID" 2>/dev/null || true
@@ -226,7 +242,7 @@ login_ok = all(r["bare"] for r in rows if r["scenario"].startswith("benign_"))
 lines = ["# P3 — real application (DVWS-node)", "",
          f"Attacks {attacks}: landed bare {landed}, VOID {void}. Controls on bare: {'ok' if login_ok else 'BROKEN'}.",
          (f"Vorynex Tier 1 contained {contained}/{attacks}."
-          if c else "Vorynex Tier 1: not armed (needs root) — containment column is n/a."),
+          if c else "Vorynex Tier 1: not armed (no containment claim)."),
          "",
          "'stock' is CRS with no body processors; 'tuned' adds the JSON/XML body",
          "processors a real deployment configures.",
