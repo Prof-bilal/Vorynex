@@ -1,0 +1,16 @@
+# Keep the build context small: the control plane image needs go.mod, cmd,
+# cloud and engine only.
+.git
+.codeatlas
+.commandcode
+.agents
+upstream
+web
+landing
+tests
+docs
+dist
+build
+*.md
+!README.md
+.shiki

@@ -1,0 +1,32 @@
+[Unit]
+Description=Vorynex Cloud control plane (ingestion API + dashboard)
+Documentation=https://github.com/Prof-bilal/Vorynex
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Paths are set by install.sh in /etc/vorynex/cloud.env:
+#   VORYNEX_CLOUD_ADDR, VORYNEX_CLOUD_STORE, VORYNEX_CLOUD_TOKEN, VORYNEX_CLOUD_TLS
+EnvironmentFile=-/etc/vorynex/cloud.env
+# The admin token is optional but strongly recommended: without it the API is
+# unauthenticated. Generate one with: openssl rand -hex 32
+EnvironmentFile=-/etc/vorynex/cloud-token.env
+ExecStart=/usr/local/bin/vorynex-cloud \
+  --addr ${VORYNEX_CLOUD_ADDR} \
+  --store ${VORYNEX_CLOUD_STORE} \
+  --dashboard /usr/share/vorynex/dashboard \
+  ${VORYNEX_CLOUD_TLS_ARGS}
+Restart=on-failure
+RestartSec=2
+
+# State is a local JSONL store (plus Postgres if SUPABASE_URL is configured).
+StateDirectory=vorynex
+ReadWritePaths=/var/lib/vorynex
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

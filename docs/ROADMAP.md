@@ -218,8 +218,16 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
       (slower in 7/7 rounds), ~6× CPU, 1.85× memory, 2× startup.
       Not yet covered: Tier 1 (per-syscall) overhead and a throughput ceiling.
 - [ ] `vorynex connect` + `vorynex status` (onboarding and posture)
-- [ ] Installable without the repo: release build, `install.sh`, systemd unit,
-      control-plane Dockerfile, deploy docs
+- [x] **Installable without the repo**: `make release` (tarballs + checksums for
+      linux/amd64, linux/arm64, darwin/arm64), `install.sh` (idempotent, prefix
+      or system install, uninstall), systemd units for agent and cloud, a
+      control-plane `cloud/Dockerfile` with a real entrypoint, and
+      `docs/INSTALL.md`
+- [x] **End-to-end acceptance** (`make e2e`, CI job): build → install from the
+      checkout *and* from a release tarball → capability report → observe →
+      generate policy → run under it → attack contained (with a control proving
+      it lands unprotected) → rollback → protect off → control-plane ingestion →
+      container image. 70 assertions, no root needed.
 - [ ] Reversible protect: `--off`, `--from-desired`, health-check rollback
 - [ ] Real self-hosted Docker/Node workloads
 - [ ] Success metrics from [MVP.md](MVP.md) tracked

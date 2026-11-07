@@ -1,0 +1,42 @@
+[Unit]
+Description=Vorynex agent — supervise a workload under a runtime policy
+Documentation=https://github.com/Prof-bilal/Vorynex/blob/main/docs/INSTALL.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Configure the workload in /etc/vorynex/agent.env (written by install.sh):
+#
+#   VORYNEX_NAME=my-app
+#   VORYNEX_POLICY=/etc/vorynex/policy.yaml
+#   VORYNEX_HEALTH=http://127.0.0.1:3000/health
+#   VORYNEX_COMMAND=/usr/bin/node /srv/my-app/server.js
+#
+# For a second application, copy this unit to vorynex-agent@my-app.service and
+# give it its own EnvironmentFile.
+EnvironmentFile=/etc/vorynex/agent.env
+# Local source of truth: mode, policy digest, journal (engine/state).
+Environment=XDG_STATE_HOME=/var/lib/vorynex
+StateDirectory=vorynex
+
+# `run` supervises; the workload itself is launched through `vorynex exec`, so
+# the Landlock boundary is applied to the child, not to the supervisor.
+ExecStart=/bin/sh -c 'exec /usr/local/bin/vorynex run --policy "$VORYNEX_POLICY" --health "$VORYNEX_HEALTH" -- $VORYNEX_COMMAND'
+
+# If the workload never becomes healthy, `run` rolls back to the previous state
+# and exits non-zero; systemd restarts it, which re-applies the prior policy.
+Restart=on-failure
+RestartSec=3
+KillMode=mixed
+TimeoutStopSec=20
+
+# Landlock requires no_new_privs; the agent needs nothing else.
+NoNewPrivileges=true
+# Deliberately NO ProtectSystem/ProtectHome/PrivateTmp here: the workload's
+# write access is decided by its policy, and a second, invisible set of
+# restrictions would break applications in ways that look like Vorynex
+# false positives. See docs/FAILURE_MODES.md.
+
+[Install]
+WantedBy=multi-user.target

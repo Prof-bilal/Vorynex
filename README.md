@@ -39,6 +39,19 @@ attack prevention.
 [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) before protecting anything
 sensitive. Verify native enforcement on the operating system where you run it.
 
+Installable and testable today — see **[docs/INSTALL.md](docs/INSTALL.md)**:
+
+```bash
+make release && sudo ./install.sh     # or: sudo ./install.sh  (builds from checkout)
+make e2e                              # the whole journey, asserted, no root needed
+```
+
+`make e2e` builds, installs (from the checkout *and* from a release tarball),
+reports capabilities, observes a workload, generates a policy, runs the workload
+under it, proves an attack lands unprotected and is contained when protected,
+rolls back a workload that never becomes healthy, turns protection off, ingests
+into the control plane, and builds the container image.
+
 ## Relationship to Warden
 
 Vorynex is built on [Warden](https://github.com/Prof-bilal/Warden), an
@@ -227,6 +240,10 @@ To see the dashboard without running the server, generate the sample preview:
 | [FAILURE_MODES.md](docs/FAILURE_MODES.md) | Fail-open / fail-closed behavior |
 | [SECURITY.md](docs/SECURITY.md) | Security policy and limitations |
 | [SECURITY_TESTING.md](docs/SECURITY_TESTING.md) | The proof-of-value attack lab |
+| [INSTALL.md](docs/INSTALL.md) | Install, verify, protect; uninstall; troubleshooting |
+| [PROOF.md](docs/PROOF.md) | The containment proof (P1–P4) and what it does not show |
+| [BENCHMARKS.md](docs/BENCHMARKS.md) | WAF comparison: controlled target and a real app |
+| [PERFORMANCE.md](docs/PERFORMANCE.md) | What enforcement costs, measured |
 | [OSS_COMMERCIAL_BOUNDARY.md](docs/OSS_COMMERCIAL_BOUNDARY.md) | OSS vs commercial split |
 
 ---

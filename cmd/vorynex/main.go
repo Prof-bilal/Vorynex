@@ -14,7 +14,13 @@ import (
 	"github.com/vorynex/vorynex/engine/policy"
 )
 
-const version = "0.0.1-dev"
+// Stamped at build time: -X main.version=... -X main.commit=... -X main.date=...
+// (see `make release`). The defaults keep `go run` and `go test` working.
+var (
+	version = "0.0.1-dev"
+	commit  = ""
+	date    = ""
+)
 
 const usage = `vorynex — managed runtime security for web applications
 
@@ -64,7 +70,14 @@ func main() {
 	}
 	switch args[0] {
 	case "version", "--version", "-v":
+		if len(args) > 1 && args[1] == "--json" {
+			fmt.Printf("{\"version\":%q,\"commit\":%q,\"date\":%q}\n", version, commit, date)
+			return
+		}
 		fmt.Printf("vorynex %s\n", version)
+		if commit != "" || date != "" {
+			fmt.Printf("  commit %s  built %s\n", orUnknown(commit), orUnknown(date))
+		}
 	case "help", "--help", "-h":
 		fmt.Println(usage)
 	case "exec":
@@ -149,6 +162,13 @@ func main() {
 		fmt.Fprintln(os.Stderr, "run `vorynex help` for the command surface")
 		os.Exit(2)
 	}
+}
+
+func orUnknown(s string) string {
+	if s == "" {
+		return "unknown"
+	}
+	return s
 }
 
 // runExec parses `--policy <file> -- <command...>`, loads the policy, and

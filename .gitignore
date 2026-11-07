@@ -19,6 +19,7 @@ pnpm-lock.yaml
 tests/proof/evidence/
 tests/proof/evidence-real/
 tests/proof/evidence-bench/
+tests/e2e/evidence/
 
 # Local runtime state
 *.log

@@ -4,12 +4,31 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 
 	"github.com/vorynex/vorynex/cloud/api"
 )
+
+// Stamped at build time (see `make release`).
+var version = "0.0.1-dev"
+
+// resolvedDashboard returns a dashboard directory that exists: the one asked
+// for, else the system location used by packages, else the original (so the
+// 404 explains the path that was actually missing).
+func resolvedDashboard(dir string) string {
+	if _, err := os.Stat(dir); err == nil {
+		return dir
+	}
+	for _, fallback := range []string{"/usr/share/vorynex/dashboard", "/usr/local/share/vorynex/dashboard"} {
+		if _, err := os.Stat(fallback); err == nil {
+			return fallback
+		}
+	}
+	return dir
+}
 
 func main() {
 	addr := flag.String("addr", "127.0.0.1:8787", "listen address")
@@ -18,7 +37,14 @@ func main() {
 	dashboard := flag.String("dashboard", "cloud/dashboard", "dashboard static directory")
 	tlsCert := flag.String("tls-cert", "", "TLS certificate file (with --tls-key) enables HTTPS")
 	tlsKey := flag.String("tls-key", "", "TLS private key file")
+	showVersion := flag.Bool("version", false, "print the version and exit")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("vorynex-cloud %s\n", version)
+		return
+	}
+	*dashboard = resolvedDashboard(*dashboard)
 
 	eventStore := api.NewStore(*store)
 	if mirror := api.NewSupabaseMirrorFromEnv(); mirror != nil {
