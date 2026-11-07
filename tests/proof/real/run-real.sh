@@ -40,7 +40,8 @@ echo "== P3: real application (DVWS-node) =="
 if [[ ! -d "$DVWS" ]]; then
   git clone --depth 1 "$DVWS_REPO" "$DVWS" >/dev/null 2>&1 || { echo "clone failed"; exit 1; }
 fi
-cp "$HERE/docker-compose.proof.yml" "$DVWS/"
+cp "$HERE/docker-compose.proof.yml" "$DVWS/" || exit 1
+cp "$HERE/collector.js" "$DVWS/" || exit 1
 mkdir -p "$DVWS/shared"
 : > "$DVWS/shared/hits.log"
 
@@ -55,9 +56,32 @@ curl -sf "http://127.0.0.1:$APP_PORT/api/v1/info" >/dev/null 2>&1 || {
   echo "the application did not come up on :$APP_PORT" >&2; exit 1; }
 echo "-- app healthy on 127.0.0.1:$APP_PORT --"
 
-COLLECTOR_IP="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' \
-  "$(docker ps --filter name=collector --format '{{.Names}}' | head -1)" 2>/dev/null)"
+COLLECTOR_IP=""
+for _ in $(seq 1 20); do
+  COLLECTOR_IP="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' \
+    "$(docker ps --filter name=collector --format '{{.Names}}' | head -1)" 2>/dev/null)"
+  [[ -n "$COLLECTOR_IP" ]] && break
+  sleep 0.5
+done
 echo "-- collector at ${COLLECTOR_IP:-unknown}:3290 --"
+if [[ ! "$COLLECTOR_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "the collector container is not running; SSRF cannot be measured. Logs:" >&2
+  docker logs "$(docker ps -a --filter name=collector --format '{{.Names}}' | head -1)" 2>&1 | tail -10 >&2
+  exit 1
+fi
+
+# Tier 1 needs root. Prefer passwordless sudo, otherwise use an askpass helper so
+# the harness can still run unprivileged (node/go stay on the user's PATH).
+SUDO=""
+if sudo -n true 2>/dev/null; then
+  SUDO="sudo"
+elif [[ -n "${PROOF_SUDO_PASSWORD:-}" ]]; then
+  ASKPASS="$WORK/askpass.sh"
+  printf '#!/bin/sh\nprintf "%%s\\n" "$PROOF_SUDO_PASSWORD"\n' > "$ASKPASS"
+  chmod 700 "$ASKPASS"
+  export SUDO_ASKPASS="$ASKPASS"
+  SUDO="sudo -A"
+fi
 
 export SHARED="$DVWS/shared"
 export COLLECTOR_URL="http://collector:3290/probe"
@@ -115,26 +139,51 @@ run_waf_arm "pl1-tuned" 1 "$EXTRA_CONF"
 # --- arm C: Vorynex Tier 1 (live attach) -------------------------------------
 echo
 echo "== arm C — Vorynex Tier 1 (live attach to the running container) =="
-if sudo -n true 2>/dev/null; then
+if [[ -n "$SUDO" ]]; then
   VORYNEX="$WORK/vorynex"
   (cd "$ROOT" && go build -o "$VORYNEX" ./cmd/vorynex) || exit 1
   WEB_CID="$(docker ps --filter name=web --format '{{.Names}}' | head -1)"
   WEB_PID="$(docker inspect -f '{{.State.Pid}}' "$WEB_CID")"
-  CGROUP="$(grep -o '0::.*' "/proc/$WEB_PID/cgroup" | cut -d: -f3)"
-  echo "-- container pid $WEB_PID cgroup $CGROUP --"
+  CGROUP=""; CGROUP_PATH=""
+  for _ in $(seq 1 20); do
+    CGROUP_PATH="$(grep -o '0::.*' "/proc/$WEB_PID/cgroup" 2>/dev/null | cut -d: -f3)"
+    if [[ -n "$CGROUP_PATH" ]]; then
+      CGROUP="$(stat -c '%i' "/sys/fs/cgroup$CGROUP_PATH" 2>/dev/null)"
+      [[ -n "$CGROUP" ]] && break
+    fi
+    sleep 0.5
+  done
+  # Never arm nothing and then report a result: an unarmed "containment" column
+  # is worse than no column.
+  if [[ -z "$CGROUP" ]]; then
+    echo "-- ERROR: could not resolve the container cgroup; arm C not run --" >&2
+    : > "$OUT/arm-c.jsonl"
+  else
+  echo "-- container pid $WEB_PID cgroup $CGROUP_PATH (id $CGROUP) --"
+  # The inode must be resolved through the container's mount namespace: the
+  # image's /bin/sh is an overlay file (a different inode from the host's), and
+  # the hook matches the inode the container actually executes.
+  SHELL_IN_CONTAINER="/proc/$WEB_PID/root/bin/sh"
   reset_effects
-  sudo "$VORYNEX" live attach --cgroup "$CGROUP" \
-    --deny-exec /bin/sh --block-connect "$COLLECTOR_IP:3290" --seconds 60 \
-    >"$OUT/tier1.log" 2>&1 &
+  # shellcheck disable=SC2086
+  $SUDO "$VORYNEX" live attach \
+    --object "$ROOT/engine/enforce/live/bpf/live.bpf.o" \
+    --cgroup "$CGROUP" \
+    --deny-exec "$SHELL_IN_CONTAINER" \
+    --block-connect "$COLLECTOR_IP:3290" \
+    --seconds 40 >"$OUT/tier1.log" 2>&1 &
   APP_PID=$!
-  sleep 3
+  sleep 4
+  cat "$OUT/tier1.log"
   node "$HERE/attacker-real.js" "http://127.0.0.1:$APP_PORT" "$OUT/arm-c.jsonl" | tee "$OUT/arm-c.log"
-  kill "$APP_PID" 2>/dev/null || true
+  # Let the attach reach its deadline and detach itself rather than killing it,
+  # so the hooks are never left armed on a live workload.
   wait "$APP_PID" 2>/dev/null || true
   APP_PID=""
+  fi
 else
-  echo "-- SKIPPED: arming Tier 1 needs root (sudo). Run this script with sudo," >&2
-  echo "   or grant it CAP_BPF, to produce the containment column." >&2
+  echo "-- SKIPPED: arming Tier 1 needs root. Re-run with passwordless sudo, or" >&2
+  echo "   set PROOF_SUDO_PASSWORD, to produce the containment column." >&2
   : > "$OUT/arm-c.jsonl"
 fi
 

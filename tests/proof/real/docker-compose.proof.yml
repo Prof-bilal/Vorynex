@@ -17,9 +17,7 @@ services:
 
   collector:
     image: dvws-node-web
-    command: >
-      node -e "const http=require('http'),fs=require('fs');
-      http.createServer((req,res)=>{fs.appendFileSync('/proof/hits.log',req.url+'\n');
-      res.end('DECOY-COLLECTOR-NOT-REAL')}).listen(3290,'0.0.0.0')"
+    command: ["node", "/collector.js"]
     volumes:
       - ./shared:/proof
+      - ./collector.js:/collector.js:ro

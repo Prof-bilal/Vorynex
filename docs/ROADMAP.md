@@ -207,10 +207,11 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
       bare vs OWASP CRS (PL1/PL2) vs Vorynex on a controlled target. 7/7 effects
       contained; CRS missed the decimal-IP SSRF at PL1 (it landed) and caught it
       at PL2. CI job uploads the evidence.
-- [ ] Proof on a **real application** (DVWS-node): bare + OWASP CRS arms are in
-      (`make proof-real`, `docs/BENCHMARKS.md`) — CRS let the `exec()` injection
-      through at PL1/PL2. Remaining: the Vorynex Tier 1 column (needs root), and
-      `vorynex bench` performance numbers
+- [ ] Proof on a **real application** (DVWS-node): done — bare, OWASP CRS
+      (PL1/PL2 stock + tuned) and Vorynex Tier 1 live attach, in
+      `docs/BENCHMARKS.md`. CRS let the `exec()` injection through at every
+      setting; Tier 1 contained both attacks without restarting the container.
+      Remaining: more scenarios (XXE, NoSQLi, SSTI) and `vorynex bench` numbers
 - [ ] `vorynex connect` + `vorynex status` (onboarding and posture)
 - [ ] Installable without the repo: release build, `install.sh`, systemd unit,
       control-plane Dockerfile, deploy docs

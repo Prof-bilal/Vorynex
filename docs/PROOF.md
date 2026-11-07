@@ -1,10 +1,9 @@
 # PROOF.md — containment proof
 
-**Status: P1 (containment) and P2 (CRS comparison) complete on a controlled
-target; P3 (a real third-party app) has bare + CRS arms done and the Vorynex
-Tier 1 column pending a privileged run; P4 (performance) pending.** This file is
-the living report; a table only appears here once the run that produced it
-exists in `tests/proof/evidence/` or `tests/proof/evidence-real/`.
+**Status: P1 and P2 complete on a controlled target; P3 complete on a real
+third-party app (bare / CRS / Vorynex Tier 1); P4 (performance) pending.** This
+file is the living report; a table only appears here once the run that produced
+it exists in `tests/proof/evidence/` or `tests/proof/evidence-real/`.
 
 ## The claim (pre-registered)
 
@@ -64,10 +63,12 @@ release blocker.
   Vercel: their Free/Hobby tiers cannot run the managed rulesets that matter, and
   bypasses are WAF×framework specific. No claim about a commercial WAF is made.
 - **The real-app arm (P3) covers two scenarios so far.** On DVWS-node, CRS at
-  PL1/PL2 (stock and tuned) let an authenticated `exec()` injection through —
-  and only "blocked" XML-RPC by failing to parse the body. XXE, NoSQL injection
-  and SSTI are present in that app and not yet measured. Its Vorynex column
-  needs root (Tier 1 live attach) and has not been produced.
+  PL1/PL2 (stock and tuned) let an authenticated `exec()` injection through, and
+  only "blocked" the XML-RPC SSRF by failing to parse the body; one Tier 1 hook
+  set (deny exec, block connect) contained both without restarting the container
+  or breaking its normal requests. XXE, NoSQL injection and SSTI are present in
+  that app and not yet measured, and the Tier 1 hooks were chosen by hand, not
+  derived from the observed behaviour.
 - **The corpus is small.** 7 attacks on our fixture, 2 on the real app; no
   TNR/false-positive rate is claimed from either. A real FP study needs a
   public benign corpus.

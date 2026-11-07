@@ -91,49 +91,77 @@ stack — a real third-party app, not our fixture. Two genuine sinks:
 
 ```bash
 make proof-real        # Docker; ~2.5 GB on first run; not part of CI
+# the Vorynex column arms BPF hooks, so it needs root:
+PROOF_SUDO_PASSWORD=... make proof-real
 ```
 
 ```
 Attacks 2: landed bare 2, VOID 0. Controls on bare: ok.
+Vorynex Tier 1 contained 2/2.
 ```
 
 | Scenario | Bare | CRS PL1 | CRS PL2 | CRS PL1 tuned | Vorynex Tier 1 |
 |---|---|---|---|---|---|
-| `rce_exec` — `id;touch /proof/rce-marker` via `sysinfo` | landed | **landed** | **landed** | **landed** | n/a¹ |
-| `ssrf_uptime` — XML-RPC fetch to the collector | landed | blocked² | blocked² | blocked² | n/a¹ |
-| `benign_login` — `admin/letmein` | landed | landed | landed | landed | n/a¹ |
-| `benign_info` — `GET /api/v1/info` | landed | landed | landed | landed | n/a¹ |
+| `rce_exec` — `id;touch /proof/rce-marker` via `sysinfo` | landed | **landed** | **landed** | **landed** | **blocked** |
+| `ssrf_uptime` — XML-RPC fetch to the collector | landed | blocked² | blocked² | blocked² | **blocked** |
+| `benign_login` — `admin/letmein` | landed | landed | landed | landed | landed |
+| `benign_info` — `GET /api/v1/info` | landed | landed | landed | landed | landed |
 
-¹ The Tier 1 column needs root: it arms BPF hooks on the running container's
-cgroup. Run `sudo tests/proof/real/run-real.sh` (or `sudo make proof-real`).
 ² Blocked by rule **200002** — Coraza's *body-parsing* rule, because CRS 4.0
 has no XML body processor. The request never reached the app, so the SSRF was
 prevented, but no SSRF rule matched: it is a blunt instrument that would also
 block legitimate XML APIs (the "tuned" arm adds JSON/XML body processors and the
 block persists).
 
+**How the Tier 1 column is produced** — the app is never restarted. The harness
+resolves the running container's cgroup, then runs
+`vorynex live attach --object ... --cgroup <id> --deny-exec /proc/<pid>/root/bin/sh
+--block-connect <collector>:3290 --seconds 40`, which arms eBPF-LSM hooks on that
+cgroup and disarms itself when the window closes. Two details that matter:
+
+- the denied inode must be resolved **through the container's mount namespace**
+  (`/proc/<pid>/root/bin/sh`). The image's shell is an overlay file (inode
+  1826004) and is a different file from the host's `/bin/sh` (inode 7369); using
+  the host path would arm a hook that never fires.
+- only `--deny-exec` and `--block-connect` are needed. The workload keeps its DB
+  connections because each hook is per-operation — this is why Tier 1, not
+  Tier 0, is the right tier for an already-running app (Tier 0 denies all
+  outbound TCP at spawn time, which would stop the app reaching Mongo/MySQL).
+
 Findings:
 
 1. **An `exec()` injection in a path parameter passes every CRS configuration
-   we tried** — stock and tuned, PL1 and PL2 — and the marker was written. The
-   payload arrives as `/api/v2/sysinfo/id%3Btouch%20%2Fproof%2Frce-marker`; no
-   CRS rule matched it at all (`app_rules_matched=[]` in the audit). CRS scans
-   arguments and a normalised URI, and this injection is neither.
-2. **Enabling a body processor changes the reason for a block, not the
-   protection.** Both the stock and tuned arms stop the XML-RPC request, but
-   only because the body cannot be parsed.
-3. **No false positives here once the harness was correct.** The first run
-   showed CRS 403-ing the login. That was *our* bug: the attacker sent the body
-   with chunked encoding, so the WAF could not read it and raised a body error.
-   Fixed in the harness; the false positive disappeared. Recording it because
-   the same mistake would have produced a flattering, wrong result in the other
-   direction.
+   we tried** — PL1, PL2, stock and tuned — and the marker was written. The audit
+   shows no CRS rule matched it (`app_rules_matched=[]`). CRS scans arguments and
+   a normalised URI; this injection is neither.
+2. **The same injection is denied by one Tier 1 hook**, and the container keeps
+   serving: `benign_login` and `benign_info` still return 200 during the armed
+   window, and the app is healthy after disarm.
+3. **The app lies about the SSRF, and the harness doesn't care.** Under Tier 1,
+   `/xmlrpc` still replies `200 CheckUptime ... "Checking uptime for: ..."`, but
+   the collector logged zero hits — the fetch never happened. The effect is
+   checked at the collector, not in the reply.
+4. **Enabling a body processor changes the reason for a block, not the
+   protection.** Both stock and tuned arms stop the XML-RPC request, but only
+   because the body cannot be parsed.
+
+### Two bugs this harness had (and why they are recorded)
+
+- The first run showed CRS 403-ing the login — a flattering result. It was ours:
+  the attacker sent bodies chunked, so Coraza raised a body error and blocked.
+- The next runs showed Tier 1 "containing" everything and later "containing
+  nothing"; both were wrong. The collector container was not running, so the SSRF
+  effect was being read from the application's optimistic reply, and an unarmed
+  attach reported success. The harness now fails loudly when the collector is
+  down or the cgroup cannot be resolved, and never reports a column it did not
+  actually produce.
 
 ### Limits of P3
 
-- Two scenarios so far (RCE + SSRF); XXE, NoSQL injection and SSTI are in the
-  app and not yet measured.
-- Tier 1 column requires root and is not yet produced.
-- DVWS-node is a deliberately vulnerable teaching app. It is *real third-party
-  code*, but it is not a production workload; a production app has far more
-  allowed behaviour, which cuts both ways.
+- Two scenarios so far (RCE + SSRF); XXE, NoSQL injection and SSTI are present
+  in the app and not yet measured.
+- DVWS-node is deliberately vulnerable teaching code. It is real third-party
+  software, but not a production workload; a production app allows far more
+  behaviour, which cuts both ways.
+- The Tier 1 column requires root. It is one hook set chosen by hand for these
+  two attacks, not an automatically derived policy.
