@@ -20,7 +20,10 @@ services:
       SSTI_CANARY: "SSTI-CANARY-NOT-REAL-7f3a"
 
   collector:
-    image: dvws-node-web
+    # Built from the same Dockerfile as the app, not `image: dvws-node-web`:
+    # compose would try to pull that name on a fresh machine (the app image does
+    # not exist yet) and fail. Building it reuses the cache, so it costs seconds.
+    build: .
     command: ["node", "/collector.js"]
     volumes:
       - ./shared:/proof
