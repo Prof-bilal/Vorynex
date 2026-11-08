@@ -43,8 +43,15 @@ Installable and testable today — see **[docs/INSTALL.md](docs/INSTALL.md)**:
 
 ```bash
 make release && sudo ./install.sh     # or: sudo ./install.sh  (builds from checkout)
+sudo vorynex preflight                # refuse to ship a host that is not ready
 make e2e                              # the whole journey, asserted, no root needed
 ```
+
+`vorynex preflight` is the deploy gate: it reads the real configuration and fails
+on the things that bite later — an unauthenticated control plane reachable beyond
+loopback, plaintext on a public address, a workload under `/tmp` that can never be
+granted, a policy that does not cover the application's own files, a token file
+readable by other users, an untagged version. Each failure names its fix.
 
 `make e2e` builds, installs (from the checkout *and* from a release tarball),
 reports capabilities, observes a workload, generates a policy, runs the workload

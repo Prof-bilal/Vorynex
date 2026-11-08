@@ -149,6 +149,7 @@ you. Agents enrol with the admin token once and then use a per-host token.
 make e2e        # the whole journey, asserted: install (checkout + tarball),
                 # observe, policy, protect, attack contained, rollback, off,
                 # control-plane ingestion, container image
+make preflight  # the deployment gate, against this host's real config
 make proof      # containment vs a request-layer WAF on a controlled target
 make proof-real # the same against a real third-party app (Docker, needs root)
 make bench      # enforcement overhead, interleaved and paired
@@ -158,6 +159,43 @@ make bench      # enforcement overhead, interleaved and paired
 available, and fails (rather than skipping) when the host cannot enforce — a
 green run that tested nothing is worse than a red one. `E2E_ALLOW_SKIP=1`
 downgrades that, `E2E_KEEP=1` leaves the scratch workload behind.
+
+## Verify readiness before you ship
+
+`vorynex preflight` reads the real configuration and refuses to bless a host that
+would fail in front of users. It writes nothing, and exits non-zero on any
+failure:
+
+```bash
+sudo vorynex preflight --behind-proxy   # this host, as configured
+vorynex preflight --json                # machine-readable, for CI or a deploy gate
+```
+
+Every failure names the command that fixes it. What it checks:
+
+| Group | Checks |
+|---|---|
+| **host** | Landlock ABI ≥ 1 (Tier 0 can enforce at all), ABI ≥ 4 (TCP denial works), `strace` present for `observe`, Tier 1 availability (warning) |
+| **agent** | `agent.env` present; the policy **loads**; the workload exists and is executable; the workload's directory is **grantable** and covered by a read grant |
+| **cloud** | admin token set — a *failure*, not a warning, once the address is beyond loopback; token file not world-readable; TLS configured or a proxy acknowledged; state store writable |
+| **release** | version is not a dev placeholder; working tree committed; a tag exists for this version |
+
+The two agent checks that matter most are the ones that otherwise surface as a
+puzzling rollback on the first launch: an application under `/tmp` (or `/usr`,
+`/lib`, `/proc`, `/dev`) can never be granted, and a policy generated from a
+single observation session will not grant the application its own entry point.
+
+```text
+AGENT
+  FAIL  grantable   /tmp/app is runtime scratch (/tmp, /usr, /lib, /proc, /dev):
+                    it can be observed but never granted, so it can never be protected
+        fix: move the application to a stable path such as /srv, /opt, /var/lib or $HOME
+
+CLOUD
+  FAIL  token       no admin token, and the API is reachable beyond loopback: anyone
+                    who can reach it can read and write fleet state
+  FAIL  tls         plaintext on a non-loopback address, with no proxy acknowledged
+```
 
 ## Uninstall
 

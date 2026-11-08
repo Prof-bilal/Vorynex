@@ -64,6 +64,13 @@ bench:
 e2e:
 	tests/e2e/run-e2e.sh
 
+# Deployment gate: refuse to ship a host whose control plane is unauthenticated,
+# whose policy does not grant the workload its own files, or whose workload sits
+# where it can never be granted. Reads the real config files; changes nothing.
+#   make preflight PREFLIGHT_ARGS="--env-file /etc/vorynex/agent.env"
+preflight:
+	go run ./cmd/vorynex preflight $(PREFLIGHT_ARGS)
+
 # Release tarballs for $(PLATFORMS) with checksums. The Tier 1 BPF object is
 # bundled when clang is available; without it the release is Tier 0 only.
 # -p 1 keeps peak memory down: cross-building several platforms at the default

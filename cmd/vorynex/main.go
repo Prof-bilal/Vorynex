@@ -58,6 +58,7 @@ Commands:
                 vorynex shield --lockfile <package-lock.json> --osv <file> [--events <events.jsonl>]
   live        Tier 1 capability status and enforcement plan
                 vorynex live status | vorynex live plan --policy <file>
+  preflight   Check whether this host is ready to deploy, and say what to fix
   version     Print the version
 
 See docs/ARCHITECTURE.md.`
@@ -149,6 +150,11 @@ func main() {
 		}
 	case "live":
 		if err := runLive(args[1:]); err != nil {
+			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
+			os.Exit(1)
+		}
+	case "preflight":
+		if err := runPreflight(args[1:]); err != nil {
 			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
 			os.Exit(1)
 		}

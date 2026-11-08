@@ -218,6 +218,13 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
       noise floor; the CRS proxy costs +1.5 ms p50 / +2.7 ms p95 / +4.3 ms p99
       (slower in 7/7 rounds), ~6× CPU, 1.85× memory, 2× startup.
       Not yet covered: Tier 1 (per-syscall) overhead and a throughput ceiling.
+- [x] **Deploy gate** (`vorynex preflight` / `make preflight`): reads the real
+      config and fails on the things that bite after launch — control plane
+      unauthenticated beyond loopback, plaintext on a public address, a workload
+      under `/tmp` (never grantable), a policy that does not cover the app's own
+      files, a world-readable token file, an untagged version. Every failure
+      names its fix; `--json` for CI. Asserted both ways in `make e2e`: it
+      refuses a fresh install, then passes once the workload and policy are set.
 - [ ] `vorynex connect` + `vorynex status` (onboarding and posture)
 - [x] **Installable without the repo**: `make release` (tarballs + checksums for
       linux/amd64, linux/arm64, darwin/arm64), `install.sh` (idempotent, prefix

@@ -124,7 +124,43 @@ check "re-install does not rotate the admin token" $?
 VORYNEX="$PREFIX/bin/vorynex"
 
 # ---------------------------------------------------------------------------
-step "2b. install from the release tarball (the artifact a user downloads)"
+step "2b. preflight refuses an install that is not configured yet"
+# A fresh install points at an example workload that does not exist. The gate
+# must say so rather than let someone point users at this host.
+PRE="$OUT/preflight-unconfigured.log"
+"$VORYNEX" preflight --env-file "$PREFIX/etc/vorynex/agent.env" \
+  --cloud-env "$PREFIX/etc/vorynex/cloud.env" \
+  --token-file "$PREFIX/etc/vorynex/cloud-token.env" >"$PRE" 2>&1
+PRE_RC=$?
+[[ "$PRE_RC" -ne 0 ]]
+check "preflight fails on an unconfigured host (exit $PRE_RC)" $?
+# It fails fast on the first problem it finds, which here is the policy.
+grep -q "FAIL" "$PRE"
+check "preflight reports a failure" $?
+grep -q "policy" "$PRE"
+check "it names the missing policy" $?
+grep -q "fix:" "$PRE"
+check "every failure comes with a fix" $?
+
+# With a policy in place it must get past that and name the real blocker: the
+# example workload in agent.env does not exist on this host.
+cat > "$PREFIX/etc/vorynex/policy.yaml" <<'YAML'
+version: 1
+filesystem:
+  read: ["/srv/example"]
+network: {}
+env: {}
+limits: {}
+YAML
+"$VORYNEX" preflight --env-file "$PREFIX/etc/vorynex/agent.env" >"$OUT/preflight-workload.log" 2>&1
+PRE_RC=$?
+[[ "$PRE_RC" -ne 0 ]]
+check "preflight still fails while the workload is missing (exit $PRE_RC)" $?
+grep -q "workload" "$OUT/preflight-workload.log"
+check "it names the workload as the problem" $?
+
+# ---------------------------------------------------------------------------
+step "2c. install from the release tarball (the artifact a user downloads)"
 (cd "$ROOT" && PLATFORMS=linux/amd64 timeout 300 make release) >"$OUT/release.log" 2>&1
 check "make release exits 0" $?
 TARBALL="$(ls "$ROOT"/dist/vorynex_*_linux_amd64.tar.gz 2>/dev/null | head -1)"
@@ -214,6 +250,27 @@ check "policy grants the application's own directory" $?
 check "generated policy is loadable (blast-radius)" $?
 "$VORYNEX" live plan --policy "$POLICY" >"$OUT/liveplan.log" 2>&1
 check "generated policy has a tier-1 plan" $?
+
+# Now that a policy exists, the installed agent can be pointed at the workload
+# and the same gate must pass. This is the pair that makes preflight meaningful:
+# it failed before configuration and passes after.
+cat > "$PREFIX/etc/vorynex/agent.env" <<EOF
+VORYNEX_NAME=e2e
+VORYNEX_POLICY=$POLICY
+VORYNEX_HEALTH=http://127.0.0.1:3000/health
+VORYNEX_COMMAND=$(command -v node) $APP_DIR/server.js
+EOF
+"$VORYNEX" preflight --env-file "$PREFIX/etc/vorynex/agent.env" \
+  --cloud-env "$PREFIX/etc/vorynex/cloud.env" \
+  --token-file "$PREFIX/etc/vorynex/cloud-token.env" --json >"$OUT/preflight.json" 2>&1
+PRE_RC=$?
+[[ "$PRE_RC" -eq 0 ]]
+check "preflight passes once the workload and policy are configured" $?
+python3 -c "
+import json,sys
+d=json.load(open('$OUT/preflight.json'))
+sys.exit(0 if d['failed']==0 and d['verdict']=='ready to deploy' else 1)" 2>/dev/null
+check "preflight --json reports zero failures and a verdict" $?
 
 # ---------------------------------------------------------------------------
 step "6. control — the attack must land when nothing enforces"
