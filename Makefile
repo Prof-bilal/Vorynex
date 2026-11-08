@@ -53,6 +53,12 @@ proof:
 proof-real:
 	tests/proof/real/run-real.sh
 
+# What does a tight policy cost? The same workload under two policies, with the
+# legitimate operations each denies reported next to containment. Containment
+# without a false-positive number is not a result.
+fp:
+	tests/proof/benign/run-tighten.sh
+
 # P4: overhead of the enforcement tiers vs the workload bare and vs a WAF in the
 # request path. Interleaved rounds, open-loop load, paired deltas.
 bench:
@@ -105,4 +111,4 @@ install:
 
 clean:
 	go clean ./...
-	rm -rf tests/security-lab/evidence tests/proof/evidence tests/proof/evidence-real tests/proof/evidence-bench
+	rm -rf tests/security-lab/evidence tests/proof/evidence tests/proof/evidence-real tests/proof/evidence-bench tests/proof/evidence-benign

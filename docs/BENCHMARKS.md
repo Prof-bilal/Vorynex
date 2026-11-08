@@ -188,3 +188,46 @@ Findings:
   behaviour, which cuts both ways.
 - The Tier 1 column requires root. It is one hook set chosen by hand for these
   three attacks, not an automatically derived policy.
+
+## P5 — false positives vs containment
+
+Containment without a false-positive number is not a result: a policy that denies
+everything scores 100%. `make fp` runs the same application twice, under two
+policies, and reports both sides of the trade.
+
+Corpus: **140 legitimate operations** — health (20), an echo API call (60),
+reading the app's own file (20), writing into its granted directory (20), and its
+own feature that spawns a command (20). A denial is counted only when the sandbox
+refused the operation (EACCES/EPERM, or a refused `execve`: non-zero with empty
+stderr) — an app failing for its own reasons is not our false positive.
+
+| Policy | Legit ops ok | Denied (FP) | FP rate | Injection outside grants | Injection inside grants |
+|---|---|---|---|---|---|
+| `no-exec` — what the generator produces for a web service | 120/140 | 20 | 14.3% | contained | contained |
+| `allow-sh` — plus `process.exec.allow: ["/bin/sh"]` | 140/140 | 0 | 0% | contained | **LANDED** |
+
+How to read it:
+
+1. **The default policy breaks one legitimate feature.** This app shells out to
+   `ping`; with no exec grant the sandbox refuses the spawn 20/20 times. That is a
+   real false positive — the honest cost of the default.
+2. **Granting the shell removes the false positive and removes the containment.**
+   With `/bin/sh` allowed, the same injection acts *inside* the granted powers: it
+   copied the application's own file into the writable directory.
+3. **What survives either way** is the effect *outside* the grants — the marker
+   write is denied because that path was never granted. Containment of the blast
+   radius holds; containment of the shell does not.
+4. **File/inode-granular exec control cannot distinguish `sh -c "ping host"` from
+   `sh -c "ping host; <payload>"`.** Same binary, different arguments. So: if your
+   application needs a shell, the runtime boundary cannot contain a shell
+   injection for you — fix the sink. If it does not need one, the default denies
+   it and containment holds.
+
+This also corrects an earlier claim in this repo: P1 reported "benign: ok", but
+that was **two** requests (echo and a file read). Neither exercised the
+application's exec feature, so the default's cost was invisible. That is exactly
+why the corpus exists, and why the number is now reported next to containment
+rather than assumed.
+
+To tighten a policy safely: make the change, re-run the corpus, and require the
+denied count to stay at zero. `make fp` is in CI.

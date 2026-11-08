@@ -1,10 +1,10 @@
 # PROOF.md — containment proof
 
-**Status: P1–P4 complete.** Containment and the WAF comparison on a controlled
+**Status: P1–P5 complete.** Containment and the WAF comparison on a controlled
 target (P1/P2), the same on a real third-party app with Tier 1 armed on a
-running container (P3), and enforcement overhead (P4). This file is the living
-report; a table only appears here once the run that produced it exists in
-`tests/proof/evidence*/`.
+running container (P3), enforcement overhead (P4), and false positives against
+containment (P5). This file is the living report; a table only appears here once
+the run that produced it exists in `tests/proof/evidence*/`.
 
 ## The claim (pre-registered)
 
@@ -21,10 +21,11 @@ Four phases, all reproducible from this repo:
 
 | Phase | Target | Arms compared | Headline | Detail |
 |---|---|---|---|---|
-| **P1** | this repo's fixture | bare vs Vorynex Tier 0 | 5/5 attacks land bare, 5/5 contained; benign unaffected | below |
+| **P1** | this repo's fixture | bare vs Vorynex Tier 0 | 5/5 attacks land bare, 5/5 contained; the 2 benign controls pass (thin — see P5) | below |
 | **P2** | this repo's fixture | + OWASP CRS PL1/PL2 | CRS blocks 6/7 at PL1, 7/7 at PL2; the payload it missed still landed | [BENCHMARKS.md](BENCHMARKS.md) |
 | **P3** | **DVWS-node** (real third-party app, Docker) | bare / CRS (PL1, PL2, tuned) / Vorynex Tier 1 live attach | CRS let the authenticated `exec()` injection through at every setting; Tier 1 contained 2/3. The in-process template-evaluation row is the mirror: CRS blocked it, Tier 1 could not see it | [BENCHMARKS.md](BENCHMARKS.md#p3--the-same-comparison-against-a-real-application) |
 | **P4** | the same endpoint | bare / Tier 0 / CRS in the request path | Tier 0 below its own noise floor; CRS +1.5 ms p50 and ~6× CPU, slower in 7/7 rounds | [PERFORMANCE.md](PERFORMANCE.md) |
+| **P5** | the same fixture | the generated policy vs one that allows a shell | the default denies a legitimate feature (14.3% of a 140-op corpus); granting the shell costs the containment | [BENCHMARKS.md](BENCHMARKS.md#p5--false-positives-vs-containment) |
 
 `make proof` → `tests/proof/evidence/<stamp>/` (P1+P2, also a CI job):
 
@@ -46,6 +47,14 @@ CRS blocked 6/7 at PL1 and 7/7 at PL2 (0 false positives on 2 benign requests)
 The one CRS miss is the point: a signature engine sees a string, not a
 destination. Vorynex never had to recognise it. Full detail and limits:
 [BENCHMARKS.md](BENCHMARKS.md).
+
+**Correction, from P5.** "Benign: ok" above is two requests — an echo and a file
+read. Neither exercises this application's ability to spawn a command, and under
+the default policy that feature is denied: measured against a 140-operation
+corpus, the generated policy refuses 20 of them. Containment is real and the
+default is a defensible choice for a service that should not shell out, but the
+cost was invisible while the benign set stayed at two requests. See
+[P5](BENCHMARKS.md#p5--false-positives-vs-containment).
 
 Evidence per run: `summary.json`, `results.jsonl`, `arm-a.jsonl`, `arm-c.jsonl`,
 `env.json` (git SHA + dirty flag, kernel, Landlock ABI, node, engine),

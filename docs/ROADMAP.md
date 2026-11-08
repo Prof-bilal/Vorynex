@@ -230,6 +230,12 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
       `VORYNEX_RUN_AS` because the workload inherits that identity. `preflight`
       fails a unit that runs as root and fails one that never passes `--token`
       (the API was open while a valid token file sat unread).
+- [x] **False positives vs containment** (`make fp`, `docs/BENCHMARKS.md`): a
+      140-operation benign corpus, same app under two policies. The generated
+      policy denies the app's own exec feature (20/140 = 14.3%); allowing
+      `/bin/sh` restores the feature and loses containment inside the grants.
+      The measurement is the tool for tightening safely: re-run it after every
+      policy change and require zero denials. In CI.
 - [ ] `vorynex connect` + `vorynex status` (onboarding and posture)
 - [x] **Installable without the repo**: `make release` (tarballs + checksums for
       linux/amd64, linux/arm64, darwin/arm64), `install.sh` (idempotent, prefix

@@ -60,12 +60,16 @@ jobs:
           node-version: '22'
       - name: containment proof (arm A vs arm C)
         run: make proof
+      - name: false positives vs containment
+        run: make fp
       - name: upload evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: proof-evidence
-          path: tests/proof/evidence/
+          path: |
+            tests/proof/evidence/
+            tests/proof/evidence-benign/
           if-no-files-found: warn
 
   # Tier 0 (Landlock) enforcement validation. Runs the security lab under the
