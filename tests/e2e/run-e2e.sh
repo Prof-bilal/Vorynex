@@ -159,6 +159,35 @@ check "preflight still fails while the workload is missing (exit $PRE_RC)" $?
 grep -q "workload" "$OUT/preflight-workload.log"
 check "it names the workload as the problem" $?
 
+# Unit checks. A network-facing unit must not run as root, and a token file on
+# disk proves nothing if the unit never passes it to the process — the exact bug
+# this check was written after.
+UNITS="$WORK/units"; mkdir -p "$UNITS"
+cat > "$UNITS/vorynex-cloud.service" <<'UNIT'
+[Service]
+User=root
+ExecStart=/usr/local/bin/vorynex-cloud --addr 127.0.0.1:8787
+UNIT
+"$VORYNEX" preflight --unit-dir "$UNITS" >"$OUT/preflight-units-bad.log" 2>&1
+PRE_RC=$?
+[[ "$PRE_RC" -ne 0 ]]
+check "preflight fails when the control-plane unit runs as root" $?
+grep -q "cloud-user" "$OUT/preflight-units-bad.log"
+check "it names the control-plane user as the problem" $?
+grep -q "cloud-token-wired" "$OUT/preflight-units-bad.log"
+check "it notices the unit never passes --token" $?
+cat > "$UNITS/vorynex-cloud.service" <<'UNIT'
+[Service]
+User=vorynex
+Group=vorynex
+ExecStart=/usr/local/bin/vorynex-cloud --token ${VORYNEX_CLOUD_TOKEN}
+UNIT
+"$VORYNEX" preflight --unit-dir "$UNITS" >"$OUT/preflight-units-ok.log" 2>&1
+grep -q "runs as vorynex" "$OUT/preflight-units-ok.log"
+check "it accepts a non-root unit" $?
+grep -q "passes --token" "$OUT/preflight-units-ok.log"
+check "it confirms the token reaches the process" $?
+
 # ---------------------------------------------------------------------------
 step "2c. install from the release tarball (the artifact a user downloads)"
 (cd "$ROOT" && PLATFORMS=linux/amd64 timeout 300 make release) >"$OUT/release.log" 2>&1

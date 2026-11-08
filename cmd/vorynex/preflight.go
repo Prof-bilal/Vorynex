@@ -49,6 +49,7 @@ type preflightReport struct {
 
 func runPreflight(args []string) error {
 	envFile, cloudEnv, tokenFile := "", "", ""
+	unitDir := "/etc/systemd/system"
 	asJSON, behindProxy := false, false
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
@@ -67,13 +68,18 @@ func runPreflight(args []string) error {
 				i++
 				tokenFile = args[i]
 			}
+		case "--unit-dir":
+			if i+1 < len(args) {
+				i++
+				unitDir = args[i]
+			}
 		case "--json":
 			asJSON = true
 		case "--behind-proxy":
 			behindProxy = true
 		default:
 			return fmt.Errorf("usage: vorynex preflight [--env-file <path>] [--cloud-env <path>] " +
-				"[--token-file <path>] [--behind-proxy] [--json]")
+				"[--token-file <path>] [--unit-dir <path>] [--behind-proxy] [--json]")
 		}
 	}
 
@@ -83,6 +89,7 @@ func runPreflight(args []string) error {
 	checkHost(add)
 	checkAgent(add, envFile)
 	checkCloud(add, cloudEnv, tokenFile, behindProxy)
+	checkServices(add, unitDir)
 	checkRelease(add)
 
 	for _, c := range rep.Checks {
@@ -423,6 +430,73 @@ func checkCloud(add func(preflightCheck), explicit, tokenFileFlag string, behind
 		add(preflightCheck{Group: "cloud", ID: "store", Status: statusPass,
 			Detail: dir + " is writable; the store is created on first write"})
 	}
+}
+
+// --- services --------------------------------------------------------------
+
+// checkServices looks at the installed units, because "the network-facing
+// service runs as root" is not visible in any config file and is the kind of
+// thing that survives all the way to production.
+func checkServices(add func(preflightCheck), unitDir string) {
+	cloud := filepath.Join(unitDir, "vorynex-cloud.service")
+	agent := filepath.Join(unitDir, "vorynex-agent.service")
+
+	if _, err := os.Stat(cloud); err == nil {
+		switch user := unitUser(cloud); user {
+		case "":
+			add(preflightCheck{Group: "services", ID: "cloud-user", Status: statusFail,
+				Detail: fmt.Sprintf("%s has no User=: the control plane would run as root", cloud),
+				Fix:    "reinstall with install.sh (it creates the 'vorynex' user), or add User/Group to the unit"})
+		case "root":
+			add(preflightCheck{Group: "services", ID: "cloud-user", Status: statusFail,
+				Detail: fmt.Sprintf("%s runs as root: a network-facing service does not need that", cloud),
+				Fix:    "set User=vorynex and Group=vorynex, and give that user ownership of the state directory"})
+		default:
+			add(preflightCheck{Group: "services", ID: "cloud-user", Status: statusPass,
+				Detail: fmt.Sprintf("%s runs as %s", cloud, user)})
+		}
+
+		// A token file on disk proves nothing if the unit never passes it to the
+		// process. This check exists because that exact bug shipped: the service
+		// answered 200 without a token while a valid token file sat unread.
+		if text, err := os.ReadFile(cloud); err == nil && strings.Contains(string(text), "ExecStart") {
+			if strings.Contains(string(text), "--token") {
+				add(preflightCheck{Group: "services", ID: "cloud-token-wired", Status: statusPass,
+					Detail: "the unit passes --token to the process"})
+			} else {
+				add(preflightCheck{Group: "services", ID: "cloud-token-wired", Status: statusFail,
+					Detail: "the unit never passes --token, so the API is unauthenticated " +
+						"even when a token file exists",
+					Fix: "add --token ${VORYNEX_CLOUD_TOKEN} to ExecStart (see packaging/systemd/vorynex-cloud.service)"})
+			}
+		}
+	}
+
+	if _, err := os.Stat(agent); err == nil {
+		switch user := unitUser(agent); user {
+		case "", "root":
+			add(preflightCheck{Group: "services", ID: "agent-user", Status: statusWarn,
+				Detail: "the agent runs as root, and the workload it supervises inherits that identity",
+				Fix:    "set VORYNEX_RUN_AS=<the user your application already runs as>, then reinstall"})
+		default:
+			add(preflightCheck{Group: "services", ID: "agent-user", Status: statusPass,
+				Detail: fmt.Sprintf("the agent runs as %s, as the workload does", user)})
+		}
+	}
+}
+
+func unitUser(path string) string {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(b), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "User=") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "User="))
+		}
+	}
+	return ""
 }
 
 // --- release ---------------------------------------------------------------

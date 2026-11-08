@@ -75,7 +75,9 @@ if [[ "$UNINSTALL" == "1" ]]; then
   rm -rf "$SHARE"
   echo "removed binaries and units."
   echo "kept: $SYSCONF (your configuration), $STATE (agent state)."
-  echo "      remove them by hand if you also want the policy and journal gone."
+  echo "      the 'vorynex' system user is left in place; remove it with:"
+  echo "      userdel vorynex   (after you are sure nothing else uses it)"
+  echo "      remove the config and state by hand if you also want those gone."
   exit 0
 fi
 
@@ -157,6 +159,27 @@ fi
 install -d -m 0700 "$STATE"
 install -d -m 0755 "$SYSCONF"
 
+# --- service user ------------------------------------------------------------
+# The control plane is network-facing and never needs root, so it gets its own
+# system user that owns the state directory. The *agent* is different: the
+# workload it supervises inherits the agent's identity, so forcing a user there
+# would break applications that rely on their own permissions.
+SERVICE_USER="vorynex"
+if [[ "$PREFIX" == "/usr/local" ]]; then
+  getent group "$SERVICE_USER" >/dev/null 2>&1 || groupadd --system "$SERVICE_USER" 2>/dev/null || true
+  if ! id -u "$SERVICE_USER" >/dev/null 2>&1; then
+    useradd --system --gid "$SERVICE_USER" --home-dir "$STATE" \
+      --shell /usr/sbin/nologin --comment "Vorynex control plane" "$SERVICE_USER" 2>/dev/null || true
+  fi
+  if id -u "$SERVICE_USER" >/dev/null 2>&1; then
+    chown "$SERVICE_USER:$SERVICE_USER" "$STATE"
+    chmod 0700 "$STATE"
+    echo "  service user: $SERVICE_USER (owns $STATE)"
+  else
+    echo "  warning: could not create the '$SERVICE_USER' user; vorynex-cloud will not start" >&2
+  fi
+fi
+
 # --- configuration (never overwrite what is already there) -------------------
 if [[ ! -f "$SYSCONF/cloud.env" ]]; then
   cat > "$SYSCONF/cloud.env" <<EOF
@@ -185,21 +208,43 @@ VORYNEX_NAME=example
 VORYNEX_POLICY=$SYSCONF/policy.yaml
 VORYNEX_HEALTH=http://127.0.0.1:3000/health
 VORYNEX_COMMAND=/usr/bin/node /srv/example/server.js
+
+# The agent — and therefore the workload it supervises — runs as this user. It
+# must be the user your application already runs as, or the app will see the
+# wrong file ownership and permissions. Left unset, the agent runs as root.
+# VORYNEX_RUN_AS=myapp
 EOF
   echo "  wrote $SYSCONF/agent.env (edit it, then enable the service)"
 fi
 
 # --- systemd -----------------------------------------------------------------
+AGENT_USER="$(sed -n 's/^VORYNEX_RUN_AS=//p' "$SYSCONF/agent.env" 2>/dev/null | tail -1 | tr -d '"'"'"' ')"
+if [[ -z "$AGENT_USER" ]]; then
+  AGENT_USER="root"
+fi
+AGENT_GROUP="$(id -gn "$AGENT_USER" 2>/dev/null || echo "$AGENT_USER")"
+
 if [[ -d /run/systemd/system && "$PREFIX" == "/usr/local" ]]; then
   for unit in vorynex-agent vorynex-cloud; do
     if [[ "$unit" == "vorynex-cloud" && "$WITH_CLOUD" != "1" ]]; then continue; fi
     src="$SRC/packaging/systemd/$unit.service"
     [[ -f "$src" ]] || src="$HERE/packaging/systemd/$unit.service"
     if [[ -f "$src" ]]; then
-      install -m 0644 "$src" "$UNIT_DIR/$unit.service"
+      # The agent unit carries the workload identity; the cloud unit's user is
+      # created above and written literally.
+      sed -e "s|__VORYNEX_AGENT_USER__|$AGENT_USER|g" \
+          -e "s|__VORYNEX_AGENT_GROUP__|$AGENT_GROUP|g" "$src" > "$UNIT_DIR/$unit.service"
+      chmod 0644 "$UNIT_DIR/$unit.service"
       echo "  installed $UNIT_DIR/$unit.service"
     fi
   done
+  if [[ "$AGENT_USER" == "root" ]]; then
+    echo "  note: the agent runs as root (VORYNEX_RUN_AS is not set in agent.env)."
+    echo "        The workload inherits that identity. Set VORYNEX_RUN_AS=<app user>"
+    echo "        to match how your application already runs."
+  else
+    echo "  agent runs as $AGENT_USER"
+  fi
   systemctl daemon-reload
   if [[ "$ENABLE" == "1" ]]; then
     systemctl enable --now vorynex-cloud 2>/dev/null || true
@@ -213,6 +258,7 @@ cat <<EOF
 
 Vorynex is installed.
 
+  vorynex preflight                    # is this host ready to deploy? (exits non-zero if not)
   vorynex doctor                       # what this host can enforce
   vorynex discover --details           # what is running here
   vorynex connect                      # find the app, learn it, report

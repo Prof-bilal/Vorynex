@@ -178,6 +178,7 @@ Every failure names the command that fixes it. What it checks:
 | **host** | Landlock ABI ≥ 1 (Tier 0 can enforce at all), ABI ≥ 4 (TCP denial works), `strace` present for `observe`, Tier 1 availability (warning) |
 | **agent** | `agent.env` present; the policy **loads**; the workload exists and is executable; the workload's directory is **grantable** and covered by a read grant |
 | **cloud** | admin token set — a *failure*, not a warning, once the address is beyond loopback; token file not world-readable; TLS configured or a proxy acknowledged; state store writable |
+| **services** | the control-plane unit does not run as root and **actually passes `--token`** to the process; the agent's user is reported (warning when it is root) |
 | **release** | version is not a dev placeholder; working tree committed; a tag exists for this version |
 
 The two agent checks that matter most are the ones that otherwise surface as a
@@ -196,6 +197,34 @@ CLOUD
                     who can reach it can read and write fleet state
   FAIL  tls         plaintext on a non-loopback address, with no proxy acknowledged
 ```
+
+## Which user each service runs as
+
+Neither service needs to run as root, and the two have different constraints.
+
+**Control plane** — `install.sh` creates a `vorynex` system user (nologin, home
+`/var/lib/vorynex`) and the unit runs as it. That user owns the state directory;
+the admin token stays root-owned at 0600 and systemd reads it before dropping
+privileges.
+
+**Agent** — the workload it supervises **inherits the agent's identity**, so the
+agent must run as the user your application already runs as. Set it in
+`agent.env` and reinstall:
+
+```bash
+VORYNEX_RUN_AS=myapp          # /etc/vorynex/agent.env
+sudo ./install.sh             # renders User=/Group= into the agent unit
+```
+
+Left unset, the agent runs as **root** and `install.sh` says so — deliberately,
+because silently choosing a user would either break the application (wrong file
+ownership, privileged ports) or quietly drop privileges it needs. `preflight`
+reports which user it found.
+
+A token file on disk is not the same as a token reaching the process: the unit
+must pass `--token "${VORYNEX_CLOUD_TOKEN}"`. Leaving that out makes the API
+open while a valid token file sits unread — which is why `preflight` checks the
+wiring, not just the file.
 
 ## Uninstall
 

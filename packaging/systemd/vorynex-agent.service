@@ -24,6 +24,13 @@ StateDirectory=vorynex
 # the Landlock boundary is applied to the child, not to the supervisor.
 ExecStart=/bin/sh -c 'exec /usr/local/bin/vorynex run --policy "$VORYNEX_POLICY" --health "$VORYNEX_HEALTH" -- $VORYNEX_COMMAND'
 
+# The agent runs AS the workload's user: the workload it spawns inherits this
+# identity. install.sh substitutes the value of VORYNEX_RUN_AS here, defaulting
+# to root with a warning, because guessing would either break the application
+# (wrong file ownership, privileged ports) or silently drop its privileges.
+User=__VORYNEX_AGENT_USER__
+Group=__VORYNEX_AGENT_GROUP__
+
 # If the workload never becomes healthy, `run` rolls back to the previous state
 # and exits non-zero; systemd restarts it, which re-applies the prior policy.
 Restart=on-failure

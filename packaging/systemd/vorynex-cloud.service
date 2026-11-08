@@ -9,19 +9,28 @@ Type=simple
 # Paths are set by install.sh in /etc/vorynex/cloud.env:
 #   VORYNEX_CLOUD_ADDR, VORYNEX_CLOUD_STORE, VORYNEX_CLOUD_TOKEN, VORYNEX_CLOUD_TLS
 EnvironmentFile=-/etc/vorynex/cloud.env
-# The admin token is optional but strongly recommended: without it the API is
-# unauthenticated. Generate one with: openssl rand -hex 32
+# The admin token is optional — without it the API is unauthenticated. Generate
+# one with: openssl rand -hex 32. It must actually reach the process: passing no
+# --token at all means open, whatever a token file might contain.
 EnvironmentFile=-/etc/vorynex/cloud-token.env
 ExecStart=/usr/local/bin/vorynex-cloud \
   --addr ${VORYNEX_CLOUD_ADDR} \
   --store ${VORYNEX_CLOUD_STORE} \
   --dashboard /usr/share/vorynex/dashboard \
+  --token ${VORYNEX_CLOUD_TOKEN} \
   ${VORYNEX_CLOUD_TLS_ARGS}
 Restart=on-failure
 RestartSec=2
 
 # State is a local JSONL store (plus Postgres if SUPABASE_URL is configured).
 StateDirectory=vorynex
+StateDirectoryMode=0700
+
+# A network-facing service does not need root. install.sh creates this system
+# user and gives it the state directory; the admin token stays 0600 root- or
+# admin-owned and is read at start.
+User=vorynex
+Group=vorynex
 ReadWritePaths=/var/lib/vorynex
 NoNewPrivileges=true
 PrivateTmp=true

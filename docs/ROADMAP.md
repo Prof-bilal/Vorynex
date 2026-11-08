@@ -225,6 +225,11 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
       files, a world-readable token file, an untagged version. Every failure
       names its fix; `--json` for CI. Asserted both ways in `make e2e`: it
       refuses a fresh install, then passes once the workload and policy are set.
+- [x] **Non-root services**: the control plane gets a dedicated `vorynex` system
+      user that owns the state dir; the agent renders `User=` from
+      `VORYNEX_RUN_AS` because the workload inherits that identity. `preflight`
+      fails a unit that runs as root and fails one that never passes `--token`
+      (the API was open while a valid token file sat unread).
 - [ ] `vorynex connect` + `vorynex status` (onboarding and posture)
 - [x] **Installable without the repo**: `make release` (tarballs + checksums for
       linux/amd64, linux/arm64, darwin/arm64), `install.sh` (idempotent, prefix
