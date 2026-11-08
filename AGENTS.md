@@ -28,7 +28,7 @@ make proof          # containment, bare vs CRS vs Vorynex (P1/P2)
 make fp             # false positives vs containment (P5)
 make bench          # enforcement overhead, interleaved + paired (P4)
 make proof-real     # the real app, Docker + root for Tier 1 (P3)
-make bpf            # build the Tier 1 eBPF object (clang)
+make bpf            # build the Tier 1 eBPF object (clang + libbpf-dev; linux-libc-dev on Debian)
 make bpf-test       # privileged Tier 1 test (needs root)
 cd web && npm run typecheck && npm run build
 ```
@@ -45,7 +45,7 @@ What each suite proves, and whether CI runs it on every push:
 | `make lab` | Tier 0 contains all seven lab attacks | every push |
 | `web` job | the Next.js app typechecks and builds | every push |
 | `make bench` | overhead; smoke setting in CI, real numbers locally | smoke only |
-| `make proof-real` | the real third-party app (Docker, ~2.5 GB, root for Tier 1) | on demand (`workflow_dispatch`) |
+| `make proof-real` | the real third-party app (Docker, ~2.5 GB, root for Tier 1) | on demand; every push once a runner is registered ([CI_RUNNER.md](docs/CI_RUNNER.md)) |
 
 ## RepoSpine / CodeAtlas context (code intelligence)
 

@@ -143,7 +143,7 @@ jobs:
         with:
           node-version: '22'
       - name: system deps
-        run: sudo apt-get update && sudo apt-get install -y clang linux-libc-dev
+        run: sudo apt-get update && sudo apt-get install -y clang libbpf-dev linux-libc-dev
       - name: real application (bare / CRS / Tier 1 live attach)
         run: make proof-real
       - name: summarise

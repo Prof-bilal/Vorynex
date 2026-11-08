@@ -150,7 +150,7 @@ if [[ -n "$SUDO" ]]; then
   if [[ ! -f "$ROOT/engine/enforce/live/bpf/live.bpf.o" ]]; then
     echo "-- building the tier 1 BPF object --"
     (cd "$ROOT" && make bpf) >"$OUT/bpf.log" 2>&1 \
-      || echo "warning: could not build live.bpf.o (clang missing?) — see $OUT/bpf.log" >&2
+      || echo "warning: could not build live.bpf.o (needs clang, libbpf-dev and linux-libc-dev) — see $OUT/bpf.log" >&2
   fi
   WEB_CID="$(docker ps --filter name=web --format '{{.Names}}' | head -1)"
   WEB_PID="$(docker inspect -f '{{.State.Pid}}' "$WEB_CID")"
