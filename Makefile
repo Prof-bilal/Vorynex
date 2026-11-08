@@ -21,8 +21,15 @@ fmt:
 ci: vet build test
 
 # Build the Tier 1 eBPF-LSM object (needs clang).
+#
+# Two portability details: Debian/Ubuntu keep the architecture's asm/ headers
+# under /usr/include/<triplet>/asm (multiarch), which is not on the default
+# search path, and the target-arch macro is not always x86.
+MULTIARCH := $(shell uname -m)-linux-gnu
+BPF_INCLUDE := -I/usr/include $(if $(wildcard /usr/include/$(MULTIARCH)),-I/usr/include/$(MULTIARCH))
+BPF_TARGET_ARCH := $(shell uname -m | sed -e 's/x86_64/x86/' -e 's/aarch64/arm64/' -e 's/armv.*/arm/')
 bpf:
-	clang -O2 -g -target bpf -D__TARGET_ARCH_x86 -I/usr/include \
+	clang -O2 -g -target bpf -D__TARGET_ARCH_$(BPF_TARGET_ARCH) $(BPF_INCLUDE) \
 		-c engine/enforce/live/bpf/live.bpf.c -o engine/enforce/live/bpf/live.bpf.o
 
 # Privileged end-to-end test of the live tier (needs root).
