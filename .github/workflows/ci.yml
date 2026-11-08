@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # proof-real needs Docker, ~2.5 GB of images and root for the Tier 1 column,
+  # so it is run on demand rather than on every push.
+  workflow_dispatch:
 
 jobs:
   build-test:
@@ -70,6 +73,75 @@ jobs:
           path: |
             tests/proof/evidence/
             tests/proof/evidence-benign/
+          if-no-files-found: warn
+
+  # Contract test for the whole CLI: is there anything we ship that no test ever
+  # runs? Every command and subcommand is invoked and asserted.
+  features:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: every command
+        run: make features
+      - name: upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: features-evidence
+          path: tests/features/evidence/
+          if-no-files-found: warn
+
+  # The overhead harness, at a smoke setting: proves it runs and holds its load
+  # integrity, without asserting thresholds on a shared runner.
+  bench-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: overhead harness (2 rounds)
+        run: ROUNDS=2 SECONDS_PER_ARM=3 make bench
+
+  # The real-application arm (DVWS-node): Docker, ~2.5 GB of images, and root for
+  # Tier 1. Manual only; the hermetic P1/P2 arms run on every push.
+  proof-real:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: system deps
+        run: sudo apt-get update && sudo apt-get install -y clang
+      - name: real application (bare / CRS / Tier 1 live attach)
+        run: make proof-real
+      - name: upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: proof-real-evidence
+          path: tests/proof/evidence-real/
           if-no-files-found: warn
 
   # Tier 0 (Landlock) enforcement validation. Runs the security lab under the

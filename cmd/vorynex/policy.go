@@ -71,6 +71,7 @@ func policyVerify(args []string) error {
 // the trust root on agents.
 func policyPubkey(args []string) error {
 	var keyPath string
+	asJSON := false
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "--key":
@@ -78,18 +79,26 @@ func policyPubkey(args []string) error {
 				i++
 				keyPath = args[i]
 			}
+		case "--json":
+			asJSON = true
 		default:
 			return fmt.Errorf("unknown flag %q", args[i])
 		}
 	}
 	if keyPath == "" {
-		return fmt.Errorf("usage: vorynex policy pubkey --key <seed-file>")
+		return fmt.Errorf("usage: vorynex policy pubkey --key <seed-file> [--json]")
 	}
 	seed, err := readSeed(keyPath)
 	if err != nil {
 		return err
 	}
 	pub := ed25519.NewKeyFromSeed(seed).Public().(ed25519.PublicKey)
+	// Scripts pin this as a trust root, so there is a form that is only the key.
+	if asJSON {
+		fmt.Printf("{\"public_key\":%q,\"fingerprint\":%q}\n",
+			hex.EncodeToString(pub), fingerprint(pub))
+		return nil
+	}
 	fmt.Printf("public key  %s\n", hex.EncodeToString(pub))
 	fmt.Printf("fingerprint %s\n", fingerprint(pub))
 	fmt.Println("\nPin this on agents as the trust root; they refuse policies that do not verify.")

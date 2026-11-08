@@ -236,6 +236,11 @@ Milestones, not calendar dates. Each milestone should leave something demoable.
       `/bin/sh` restores the feature and loses containment inside the grants.
       The measurement is the tool for tightening safely: re-run it after every
       policy change and require zero denials. In CI.
+- [x] **Every shipped command is tested**: `make features` invokes and asserts
+      all 18 CLI commands (contract level: exit codes, output shape), found that
+      `connect`, `cve`, `shield` and `trace` had no automated invocation anywhere,
+      and added the machine-readable `policy pubkey --json` the signing workflow
+      needed. `rollout` was dispatched but missing from `vorynex help`; fixed.
 - [ ] `vorynex connect` + `vorynex status` (onboarding and posture)
 - [x] **Installable without the repo**: `make release` (tarballs + checksums for
       linux/amd64, linux/arm64, darwin/arm64), `install.sh` (idempotent, prefix

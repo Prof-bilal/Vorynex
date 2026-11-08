@@ -21,6 +21,7 @@ tests/proof/evidence-real/
 tests/proof/evidence-bench/
 tests/proof/evidence-benign/
 tests/e2e/evidence/
+tests/features/evidence/
 
 # Local runtime state
 *.log

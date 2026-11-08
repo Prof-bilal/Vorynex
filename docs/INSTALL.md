@@ -150,6 +150,7 @@ make e2e        # the whole journey, asserted: install (checkout + tarball),
                 # observe, policy, protect, attack contained, rollback, off,
                 # control-plane ingestion, container image
 make preflight  # the deployment gate, against this host's real config
+make features   # every CLI command invoked and asserted
 make proof      # containment vs a request-layer WAF on a controlled target
 make fp         # what a tight policy costs: legitimate operations it denies
 make proof-real # the same against a real third-party app (Docker, needs root)

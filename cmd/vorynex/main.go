@@ -58,6 +58,8 @@ Commands:
                 vorynex shield --lockfile <package-lock.json> --osv <file> [--events <events.jsonl>]
   live        Tier 1 capability status and enforcement plan
                 vorynex live status | vorynex live plan --policy <file>
+  rollout     Converge to the rollout the control plane staged
+                vorynex rollout pull --endpoint <url> [--token <t>] | vorynex rollout status
   preflight   Check whether this host is ready to deploy, and say what to fix
   version     Print the version
 

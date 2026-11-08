@@ -20,11 +20,32 @@ privilege".
 make build          # go build ./...
 make test           # go test ./...
 make ci             # vet + build + test
+make features       # every CLI command invoked and asserted (contract test)
+make e2e            # the operator journey, 83 assertions, no root needed
+make preflight      # deploy gate against this host's real config
 make lab            # Tier 0 security lab (7 scenarios must pass)
+make proof          # containment, bare vs CRS vs Vorynex (P1/P2)
+make fp             # false positives vs containment (P5)
+make bench          # enforcement overhead, interleaved + paired (P4)
+make proof-real     # the real app, Docker + root for Tier 1 (P3)
 make bpf            # build the Tier 1 eBPF object (clang)
 make bpf-test       # privileged Tier 1 test (needs root)
 cd web && npm run typecheck && npm run build
 ```
+
+What each suite proves, and whether CI runs it on every push:
+
+| Suite | Proves | CI |
+|---|---|---|
+| `make ci` | it compiles, vets clean, unit tests pass | every push |
+| `make features` | no shipped command is untested | every push |
+| `make e2e` | install → observe → policy → protect → contain → rollback → off → cloud | every push |
+| `make proof` | attacks land bare and are contained; CRS comparison | every push |
+| `make fp` | what a tight policy costs in denied legitimate operations | every push |
+| `make lab` | Tier 0 contains all seven lab attacks | every push |
+| `web` job | the Next.js app typechecks and builds | every push |
+| `make bench` | overhead; smoke setting in CI, real numbers locally | smoke only |
+| `make proof-real` | the real third-party app (Docker, ~2.5 GB, root for Tier 1) | on demand (`workflow_dispatch`) |
 
 ## RepoSpine / CodeAtlas context (code intelligence)
 

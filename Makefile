@@ -64,6 +64,11 @@ fp:
 bench:
 	tests/proof/bench/run-bench.sh
 
+# Contract test for the whole CLI: every command invoked and asserted. Answers
+# "is there anything we ship that no test ever runs?".
+features:
+	tests/features/run-features.sh
+
 # End-to-end acceptance: build -> install -> capability report -> observe ->
 # generate policy -> protect -> attack contained (and control landed) ->
 # rollback -> off -> control-plane ingestion. Needs no root and no Docker.
@@ -111,4 +116,4 @@ install:
 
 clean:
 	go clean ./...
-	rm -rf tests/security-lab/evidence tests/proof/evidence tests/proof/evidence-real tests/proof/evidence-bench tests/proof/evidence-benign
+	rm -rf tests/security-lab/evidence tests/proof/evidence tests/proof/evidence-real tests/proof/evidence-bench tests/proof/evidence-benign tests/e2e/evidence tests/features/evidence
