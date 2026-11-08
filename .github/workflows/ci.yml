@@ -117,10 +117,20 @@ jobs:
         run: ROUNDS=2 SECONDS_PER_ARM=3 make bench
 
   # The real-application arm (DVWS-node): Docker, ~2.5 GB of images, and root for
-  # Tier 1. Manual only; the hermetic P1/P2 arms run on every push.
+  # Tier 1. It runs on demand, and on every push once a self-hosted runner is
+  # configured:
+  #
+  #   gh variable set PROOF_REAL_RUNNER '["self-hosted","linux","x64","vorynex"]'
+  #   gh variable set PROOF_REAL_ON_PUSH true
+  #
+  # Without PROOF_REAL_ON_PUSH the job is skipped rather than queued: a job that
+  # waits forever for a runner you have not registered reads as a red pipeline.
+  # See docs/CI_RUNNER.md.
   proof-real:
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && vars.PROOF_REAL_ON_PUSH == 'true')
+    runs-on: ${{ fromJSON(vars.PROOF_REAL_RUNNER || '["ubuntu-latest"]') }}
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
@@ -136,6 +146,10 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y clang
       - name: real application (bare / CRS / Tier 1 live attach)
         run: make proof-real
+      - name: summarise
+        if: always()
+        run: |
+          cat tests/proof/evidence-real/*/evidence.md 2>/dev/null >> "$GITHUB_STEP_SUMMARY" || true
       - name: upload evidence
         if: always()
         uses: actions/upload-artifact@v4

@@ -144,6 +144,14 @@ echo "== arm C — Vorynex Tier 1 (live attach to the running container) =="
 if [[ -n "$SUDO" ]]; then
   VORYNEX="$WORK/vorynex"
   (cd "$ROOT" && go build -o "$VORYNEX" ./cmd/vorynex) || exit 1
+  # The Tier 1 object is gitignored and built locally, so a fresh checkout does
+  # not have it. Build it here rather than assuming — otherwise the attach fails
+  # and the arm silently reports nothing.
+  if [[ ! -f "$ROOT/engine/enforce/live/bpf/live.bpf.o" ]]; then
+    echo "-- building the tier 1 BPF object --"
+    (cd "$ROOT" && make bpf) >"$OUT/bpf.log" 2>&1 \
+      || echo "warning: could not build live.bpf.o (clang missing?) — see $OUT/bpf.log" >&2
+  fi
   WEB_CID="$(docker ps --filter name=web --format '{{.Names}}' | head -1)"
   WEB_PID="$(docker inspect -f '{{.State.Pid}}' "$WEB_CID")"
   CGROUP=""; CGROUP_PATH=""
