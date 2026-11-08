@@ -39,7 +39,7 @@
     padding: 18px 22px; border-radius: 0 8px 8px 0; margin: 28px 0 0;
   }
   .claim p { margin: 0; color: var(--text); }
-  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 24px 0 8px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 14px; margin: 24px 0 8px; }
   @media (max-width: 760px) { .cards { grid-template-columns: 1fr; } }
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
   .card .k { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
@@ -111,6 +111,12 @@
     <div class="v">&lt; noise</div>
     <div class="d">Tier 0's latency delta is smaller than the same workload measured twice.
       The in-path filter: +1.5 ms p50, ~6&times; CPU, in 7/7 rounds.</div>
+  </div>
+  <div class="card">
+    <div class="k">False positives · P5</div>
+    <div class="v">20 / 140</div>
+    <div class="d">legitimate operations the default policy refused: this app's own
+      exec feature. Granting the shell restores it and loses the containment.</div>
   </div>
 </div>
 
@@ -213,6 +219,33 @@ other — so at this load the sandbox is not a measurable cost. CRS is slower in
 every percentile. A delta that is not consistently one-signed is noise, not a result.</p>
 </div>
 
+<h2><span class="num">P5</span>What a tight policy costs</h2>
+<p class="lead">Containment without a false-positive number is not a result: a policy that
+denies everything scores 100%. Same application, two policies, one run. A denial counts only
+when the sandbox refused the operation — an app failing for its own reasons is not counted.</p>
+<table>
+  <thead><tr>
+    <th>Policy</th><th class="num">Legit ops ok</th><th class="num">Denied (FP)</th>
+    <th>Injection outside grants</th><th>Injection inside grants</th>
+  </tr></thead>
+  <tbody>
+    <tr><td><code>no-exec</code> (the generated default)</td><td class="num">120/140</td><td class="num">20 (14.3%)</td><td class="blocked">contained</td><td class="blocked">contained</td></tr>
+    <tr><td><code>allow-sh</code> (+ <code>process.exec.allow</code>)</td><td class="num">140/140</td><td class="num">0</td><td class="blocked">contained</td><td class="landed">landed</td></tr>
+  </tbody>
+</table>
+<p class="note">The default breaks one legitimate feature outright — this application shells out
+to <code>ping</code>, and with no exec grant the sandbox refuses the spawn 20 times out of 20.
+Allow the shell and the feature works, but the same command injection then acts <em>inside</em>
+the granted powers: it copied the application's own file into the writable directory. What
+survives either way is the effect outside the grants — that path was never granted.
+File/inode-granular exec control cannot tell <code>sh -c "ping host"</code> from
+<code>sh -c "ping host; &lt;payload&gt;"</code>: same binary, different arguments. If your
+application needs a shell, this boundary cannot contain a shell injection for you — fix the sink.
+If it does not need one, the default denies it and containment holds.</p>
+<p class="note">This also corrects an earlier claim in this project: the fixture arm originally
+reported "benign: ok" on <em>two</em> requests, neither of which exercised the app's exec
+feature, so the default's cost was invisible. The corpus exists because of that.</p>
+
 <h2>Limits — what this does not show</h2>
 <div class="limits">
 <ul>
@@ -226,8 +259,11 @@ every percentile. A delta that is not consistently one-signed is noise, not a re
   <li><strong>Tier 0 is the tier measured for cost.</strong> Tier 1's hooks are per syscall —
     they are the arm most likely to show overhead, and they are not measured here. No
     throughput ceiling is claimed for any arm.</li>
-  <li><strong>Small corpora.</strong> 7 attacks and 2 benign requests on the fixture; 2 and 2 on
-    the real app. No false-positive rate is claimed; that needs a public benign corpus.</li>
+  <li><strong>Small corpora, and one of them has already caught us out.</strong> 7 attack
+    scenarios and a 140-operation benign corpus on the fixture; 3 attacks on the real app.
+    The benign corpus exists because the original two-request control let a real false
+    positive (a denied legitimate feature) pass unnoticed. No false-positive rate is claimed
+    for any real application — that needs traffic from one.</li>
   <li><strong>One machine</strong>, shared, over loopback, no TLS, with a trivial endpoint, at
     200 rps, 7 rounds.</li>
   <li>Out of scope by design: in-process RCE detection, root attackers, kernel exploits,
