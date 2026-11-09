@@ -12,6 +12,7 @@ import (
 
 	"github.com/vorynex/vorynex/engine/enforce/spawntime"
 	"github.com/vorynex/vorynex/engine/policy"
+	"github.com/vorynex/vorynex/engine/state"
 )
 
 // Stamped at build time: -X main.version=... -X main.commit=... -X main.date=...
@@ -72,6 +73,15 @@ func main() {
 	if len(args) == 0 {
 		fmt.Println(usage)
 		return
+	}
+	// A supervisor that died mid-rollout leaves an unverified policy applied and
+	// nothing to revert it. Any later invocation does, with no operator action.
+	if args[0] != "version" && args[0] != "help" && args[0] != "--help" && args[0] != "-h" {
+		if did, err := state.Recover(); err != nil {
+			fmt.Fprintf(os.Stderr, "vorynex: recovery failed: %v\n", err)
+		} else if did {
+			fmt.Fprintln(os.Stderr, "vorynex: a previous run died before its policy was verified; reverted to the previous posture")
+		}
 	}
 	switch args[0] {
 	case "version", "--version", "-v":

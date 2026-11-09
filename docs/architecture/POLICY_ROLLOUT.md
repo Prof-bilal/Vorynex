@@ -13,9 +13,9 @@
 | Startup only? | Was yes. **Now optional beyond startup:** `vorynex run --corpus C --base URL --watch 60s [--watch-interval 10s]` re-runs the required workflows for the window and reverts + journals on any failure (`cmd/vorynex/run.go` `watchCorpus`). Without `--watch`, only startup health is checked, as before. Demo scenario 6b proves a healthy-but-regressed app is rolled back. |
 | Feature-level regression? | Yes inside the `--watch` window only; after it ends nothing runs. |
 | Restores the actual previous state? | Single-level snapshot only. A second transition overwrites the first. |
-| Agent crash / interrupted apply? | **Not tested.** If the supervisor dies after `BeginTransition`, state says "protect" with the new policy and nothing reverts it. Treat as an open risk. |
+| Agent crash / interrupted apply? | **Fixed for `vorynex run`.** The new posture and a `pending` marker (supervisor PID + /proc start time, workload PID) are written in one atomic state write (`state.BeginSupervised`); `state.Commit` clears it only after health and any `--watch` window pass. The child is started with `Pdeathsig=SIGKILL`, so a dead supervisor takes the unverified workload with it. Every later `vorynex` command (except version/help) calls `state.Recover`, which, if the supervisor is gone, kills any leftover workload, reverts, and journals `recovered`. PID reuse is defeated by comparing start times. Demo scenario 6c SIGKILLs a supervisor mid-verification. Limits: recovery needs *some* later `vorynex` invocation (a systemd unit with `Restart=` provides one); a power loss before the state write leaves the previous state, which is correct; `protect --from`/`--from-desired` do not use the pending marker yet. |
 | Cloud offline? | Fine: local. |
-| Recover without SSH? | No. There is no watchdog; `vorynex protect --off` is a manual command. |
+| Recover without SSH? | Partly: if the agent is restarted by its service manager, recovery is automatic on start. There is still no independent watchdog if nothing ever runs `vorynex` again. |
 
 ## Lifecycle (target; only the first three steps exist as commands)
 

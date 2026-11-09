@@ -126,4 +126,21 @@ grep -q "health check passed" "$W/run.out" && ok "health check passed (so a star
 curl -sf "http://127.0.0.1:$RP/health" >/dev/null && bad "workload still running after rollback" || ok "regressed workload was stopped"
 unset XDG_STATE_HOME
 
+echo "== 6c. supervisor killed (SIGKILL) while the policy is still unverified =="
+export XDG_STATE_HOME="$W/state-crash"; mkdir -p "$XDG_STATE_HOME"
+CP=$(port)
+PORT=$CP "$V" run --policy "$W/good.yaml" --health "sleep 30" --health-timeout 60s \
+  -- node "$SAFE/server.js" >"$W/crash.out" 2>&1 &
+SUP=$!
+for _ in $(seq 100); do curl -sf "http://127.0.0.1:$CP/health" >/dev/null && break; sleep 0.1; done
+"$V" status --json 2>/dev/null | grep -q '"mode": *"protect"' && ok "pending: protect applied while unverified" || bad "protect not applied during pending"
+kill -9 $SUP; wait $SUP 2>/dev/null
+sleep 1
+curl -sf "http://127.0.0.1:$CP/health" >/dev/null && bad "orphaned workload still running unwatched" || ok "workload died with its supervisor (Pdeathsig)"
+OUT=$("$V" status --json 2>"$W/recover.err"); 
+grep -q "reverted to the previous posture" "$W/recover.err" && ok "next command reported the recovery" || bad "no recovery message"
+echo "$OUT" | grep -q '"mode": *"observe"' && ok "state reverted to observe without operator action" || bad "state still protect after crash"
+grep -q '"event":"recovered"' "$XDG_STATE_HOME/vorynex/journal.jsonl" && ok "recovery journaled" || bad "recovery not journaled"
+unset XDG_STATE_HOME
+
 echo; echo "demo: $PASS passed, $FAIL failed"; [[ $FAIL -eq 0 ]]
