@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/vorynex/vorynex/engine/policy"
 	"github.com/vorynex/vorynex/engine/state"
+	"github.com/vorynex/vorynex/engine/verify"
 )
 
 // runRun supervises a workload under a policy and rolls back if it never becomes
@@ -39,7 +41,9 @@ func runRun(args []string) error {
 		flagArgs = args
 	}
 
-	var policyPath, sigPath, pubkey, health string
+	var policyPath, sigPath, pubkey, health, corpusPath, base string
+	watch := time.Duration(0)
+	watchEvery := 10 * time.Second
 	interval := 2 * time.Second
 	timeout := 40 * time.Second
 	consecutive := 2
@@ -65,6 +69,30 @@ func runRun(args []string) error {
 			if i+1 < len(flagArgs) {
 				i++
 				health = flagArgs[i]
+			}
+		case "--corpus":
+			if i+1 < len(flagArgs) {
+				i++
+				corpusPath = flagArgs[i]
+			}
+		case "--base":
+			if i+1 < len(flagArgs) {
+				i++
+				base = flagArgs[i]
+			}
+		case "--watch":
+			if i+1 < len(flagArgs) {
+				i++
+				if d, err := time.ParseDuration(flagArgs[i]); err == nil && d > 0 {
+					watch = d
+				}
+			}
+		case "--watch-interval":
+			if i+1 < len(flagArgs) {
+				i++
+				if d, err := time.ParseDuration(flagArgs[i]); err == nil && d > 0 {
+					watchEvery = d
+				}
 			}
 		case "--health-interval":
 			if i+1 < len(flagArgs) {
@@ -164,6 +192,26 @@ func runRun(args []string) error {
 		fmt.Fprintln(os.Stderr, "health check passed; policy stays applied")
 	}
 
+	// Health only proves startup. Keep running the required workflows for the
+	// watch window so a feature that breaks later also triggers rollback.
+	if watch > 0 {
+		if corpusPath == "" || base == "" {
+			terminate(child, done)
+			_, _ = state.Revert()
+			return fmt.Errorf("--watch needs --corpus and --base; rolled back rather than run unwatched")
+		}
+		if err := watchCorpus(corpusPath, base, watch, watchEvery, done); err != nil {
+			fmt.Fprintf(os.Stderr, "regression under policy: %v\nrolling back\n", err)
+			terminate(child, done)
+			if _, rerr := state.Revert(); rerr != nil {
+				return rerr
+			}
+			_ = state.Journal(state.JournalEntry{Event: "rollback", Mode: state.ModeObserve, Detail: "regression: " + err.Error()})
+			return fmt.Errorf("rolled back to the previous posture: %v", err)
+		}
+		fmt.Fprintf(os.Stderr, "watch window (%s) passed; policy stays applied\n", watch)
+	}
+
 	if err := <-exit; err != nil {
 		var ee *exec.ExitError
 		if errors.As(err, &ee) {
@@ -173,6 +221,33 @@ func runRun(args []string) error {
 	}
 	_ = state.Journal(state.JournalEntry{Event: "run-exit", Mode: st.Mode, Detail: "workload exited 0"})
 	return nil
+}
+
+// watchCorpus runs the corpus every interval until window elapses or the
+// workload exits. Any required-workflow failure or coverage gap is an error.
+func watchCorpus(corpusPath, base string, window, every time.Duration, done <-chan struct{}) error {
+	raw, err := os.ReadFile(corpusPath)
+	if err != nil {
+		return err
+	}
+	var c verify.Corpus
+	if err := json.Unmarshal([]byte(os.ExpandEnv(string(raw))), &c); err != nil {
+		return fmt.Errorf("corpus: %w", err)
+	}
+	end := time.Now().Add(window)
+	for {
+		if rep := verify.Run(base, c); !rep.Ready() {
+			return fmt.Errorf("%s", strings.Join(rep.Reasons, "; "))
+		}
+		select {
+		case <-done:
+			return nil
+		case <-time.After(every):
+		}
+		if time.Now().After(end) {
+			return nil
+		}
+	}
 }
 
 // waitHealthy polls until `consecutive` checks pass or the timeout elapses.

@@ -114,4 +114,16 @@ if [[ $RC -ne 0 ]]; then echo "    candidate failed verification; active policy 
 cmp -s "$ACTIVE" "$W/good.yaml" && ok "active policy is still the previous verified one" || bad "active policy was replaced"
 curl -s "http://127.0.0.1:$AP/api/ping?host=127.0.0.1" | grep -q '"code":0' && ok "running application still serves ping" || bad "application degraded"
 
+echo "== 6b. feature regression AFTER startup triggers rollback (health alone would not) =="
+export XDG_STATE_HOME="$W/state"; mkdir -p "$XDG_STATE_HOME"
+RP=$(port)
+PORT=$RP "$V" run --policy "$W/unsafe.yaml" --health "http://127.0.0.1:$RP/health" --health-interval 200ms \
+  --corpus "$SAFE/corpus.json" --base "http://127.0.0.1:$RP" --watch 10s --watch-interval 500ms \
+  -- node "$SAFE/server.js" >"$W/run.out" 2>&1; RC=$?
+grep -q "health check passed" "$W/run.out" && ok "health check passed (so a startup-only rollback would have kept the policy)" || bad "health did not pass first"
+[[ $RC -ne 0 ]] && grep -q "regression under policy: ping" "$W/run.out" && ok "watch window detected the ping regression and rolled back" || bad "no rollback (rc=$RC)"
+"$V" status --json 2>/dev/null | grep -q '"mode": *"observe"' && ok "state reverted to observe" || bad "state not reverted"
+curl -sf "http://127.0.0.1:$RP/health" >/dev/null && bad "workload still running after rollback" || ok "regressed workload was stopped"
+unset XDG_STATE_HOME
+
 echo; echo "demo: $PASS passed, $FAIL failed"; [[ $FAIL -eq 0 ]]

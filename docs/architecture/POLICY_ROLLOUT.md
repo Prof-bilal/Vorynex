@@ -10,8 +10,8 @@
 
 | Question | Answer |
 |---|---|
-| Startup only? | **Yes.** After the first healthy window, no check runs. A feature that breaks later (ping, upload) is never detected. A passing `/health` was the only gate. |
-| Feature-level regression? | No, until `vorynex verify`, which runs required workflows but is a separate pre-flight step, not wired into `run`. |
+| Startup only? | Was yes. **Now optional beyond startup:** `vorynex run --corpus C --base URL --watch 60s [--watch-interval 10s]` re-runs the required workflows for the window and reverts + journals on any failure (`cmd/vorynex/run.go` `watchCorpus`). Without `--watch`, only startup health is checked, as before. Demo scenario 6b proves a healthy-but-regressed app is rolled back. |
+| Feature-level regression? | Yes inside the `--watch` window only; after it ends nothing runs. |
 | Restores the actual previous state? | Single-level snapshot only. A second transition overwrites the first. |
 | Agent crash / interrupted apply? | **Not tested.** If the supervisor dies after `BeginTransition`, state says "protect" with the new policy and nothing reverts it. Treat as an open risk. |
 | Cloud offline? | Fine: local. |
