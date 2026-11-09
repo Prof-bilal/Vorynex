@@ -42,11 +42,13 @@ policy "$W/good.yaml"   "$SAFE" "process: {exec: {allow: [\"$HELPERS/ping\"]}}" 
 policy "$W/broad.yaml"  "$SAFE" "process: {exec: {allow: [\"/usr/bin/ping\"]}}"  # what an operator would naturally write
 policy "$W/good-vuln.yaml" "$VULN" "process: {exec: {allow: [\"$HELPERS/ping\"]}}"
 
-verify() { local pol=$1 p; p=$(port); PORT=$p "$V" verify --policy "$pol" --corpus "$SAFE/corpus.json" --base "http://127.0.0.1:$p" -- node "$SAFE/server.js" 2>"$W/verify.err"; }
+VERIFY_FLAGS=""
+verify() { local pol=$1 p; p=$(port); PORT=$p "$V" verify $VERIFY_FLAGS --policy "$pol" --corpus "$SAFE/corpus.json" --base "http://127.0.0.1:$p" -- node "$SAFE/server.js" 2>"$W/verify.err"; }
 
 echo "== 1. unsafe default policy (no exec) =="
-OUT=$(verify "$W/unsafe.yaml"); RC=$?; echo "$OUT" | sed 's/^/    /'
+OUT=$(VERIFY_FLAGS=--trace verify "$W/unsafe.yaml"); RC=$?; echo "$OUT" | sed 's/^/    /'
 [[ $RC -eq 2 && "$OUT" == *"ping"*"FAIL"* && "$OUT" == *"DO NOT ENFORCE"* ]] && ok "conflict detected before rollout" || bad "conflict not detected (rc=$RC)"
+[[ "$OUT" == *"execve   $HELPERS/ping  x20"* ]] && ok "trace names the denied call (execve $HELPERS/ping x20)" || bad "trace did not identify the denied execve"
 
 echo "== 1b. natural fix /usr/bin/ping is refused as unenforceable =="
 OUT=$(verify "$W/broad.yaml"); RC=$?; echo "$OUT" | sed 's/^/    /' | head -4

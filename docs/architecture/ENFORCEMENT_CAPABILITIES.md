@@ -16,7 +16,7 @@ Only what was inspected or tested in this repository on 2026-11-08. "Not tested"
 ## Denial is not telemetry
 
 Every row above is a *kernel refusal*, observed through an effect check, not a log line:
-the demo asserts the marker file does not exist, the secret is not in the response, and the lab listener saw zero connections, each against a bare control arm where the same attack lands (`tests/safe-policy/run-demo.sh`). Tier 0 emits no denial event, so nothing here should be read as "an alert fired".
+the demo asserts the marker file does not exist, the secret is not in the response, and the lab listener saw zero connections, each against a bare control arm where the same attack lands (`tests/safe-policy/run-demo.sh`). Tier 0 emits no denial event of its own, so nothing here should be read as "an alert fired". `vorynex verify --trace` infers denials from strace (requires strace; errors if absent).
 
 ## Capability gate (new)
 

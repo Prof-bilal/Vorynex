@@ -48,7 +48,7 @@ Commands:
               becomes healthy
                 vorynex run --policy <file> [--health <url|cmd>] -- <command...>
   verify      Check a candidate policy against a corpus of legitimate workflows
-                vorynex verify --policy <file> --corpus <file> --base <url> -- <command...>
+                vorynex verify --policy <file> --corpus <file> --base <url> [--trace] -- <command...>
   status      Show current mode, effective policy, and recent events
   trace       Show a human-readable attack trace
                 vorynex trace [--from <events.jsonl>] [--workload <id>] [--all] [--json]

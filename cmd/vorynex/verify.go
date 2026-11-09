@@ -18,12 +18,18 @@ import (
 // legitimate workflows at it, and exits 2 (DO NOT ENFORCE) unless every required
 // workflow passes and every declared feature is covered. It changes no state.
 //
-//	vorynex verify --policy <file> --corpus <file> --base <url> -- <command...>
+//	vorynex verify --policy <file> --corpus <file> --base <url> [--trace] -- <command...>
 func runVerify(args []string) error {
 	var policyPath, corpusPath, base string
+	trace := false
 	ready := 20 * time.Second
 	i := 0
 	for i < len(args) && args[i] != "--" {
+		if args[i] == "--trace" {
+			trace = true
+			i++
+			continue
+		}
 		if i+1 >= len(args) {
 			return fmt.Errorf("%s requires a value", args[i])
 		}
@@ -77,7 +83,26 @@ func runVerify(args []string) error {
 	if err != nil {
 		return err
 	}
-	child := exec.Command(self, append([]string{"exec", "--policy", policyPath, "--"}, cmd...)...)
+	childArgs := append([]string{"exec", "--policy", policyPath, "--"}, cmd...)
+	name := self
+	tracePath := ""
+	if trace {
+		// Requested explicitly, so a missing strace is an error, not a silent skip.
+		st, err := exec.LookPath("strace")
+		if err != nil {
+			return fmt.Errorf("--trace needs strace on PATH: %w", err)
+		}
+		tf, err := os.CreateTemp("", "vorynex-verify-strace-*")
+		if err != nil {
+			return err
+		}
+		tf.Close()
+		defer os.Remove(tf.Name())
+		tracePath = tf.Name()
+		childArgs = append([]string{"-f", "-qq", "-e", "trace=execve,openat,connect", "-o", tracePath, self}, childArgs...)
+		name = st
+	}
+	child := exec.Command(name, childArgs...)
 	child.Stdout, child.Stderr = os.Stderr, os.Stderr
 	child.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err := child.Start(); err != nil {
@@ -105,6 +130,17 @@ func runVerify(args []string) error {
 
 	rep := verify.Run(base, corpus)
 	fmt.Print(rep.Format())
+	if trace {
+		// Stop the workload first so strace flushes its file.
+		_ = syscall.Kill(-child.Process.Pid, syscall.SIGKILL)
+		_, _ = child.Process.Wait()
+		d, err := verify.Denials(tracePath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "trace: %v\n", err)
+		} else {
+			fmt.Print(verify.FormatDenials(d))
+		}
+	}
 	if !rep.Ready() {
 		os.Exit(2)
 	}
