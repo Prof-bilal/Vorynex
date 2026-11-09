@@ -52,6 +52,17 @@ func Run(cmd []string, p policy.Policy) error {
 	}
 	argv := append([]string{abs}, cmd[1:]...)
 
+	// Never silently widen a narrow exec rule: Landlock grants execute per
+	// directory, so refuse a grant it cannot enforce as written.
+	if broad := policy.BroadExecGrants(abs, p.Process.Exec.Allow, p.Process.Exec.Deny); len(broad) > 0 {
+		if os.Getenv("VORYNEX_ACCEPT_BROAD_EXEC") != "1" {
+			return broad[0]
+		}
+		for _, b := range broad {
+			fmt.Fprintf(os.Stderr, "vorynex: WARNING accepted broad exec grant: %s makes %d other executables in %s runnable\n", b.Allow, len(b.Others), b.Dir)
+		}
+	}
+
 	// Landlock and no_new_privs are per-thread; pin this goroutine's OS thread
 	// and exec from it so the workload inherits the boundary.
 	runtime.LockOSThread()

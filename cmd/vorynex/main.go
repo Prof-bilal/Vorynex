@@ -47,6 +47,8 @@ Commands:
   run         Supervise a workload under a policy and roll back if it never
               becomes healthy
                 vorynex run --policy <file> [--health <url|cmd>] -- <command...>
+  verify      Check a candidate policy against a corpus of legitimate workflows
+                vorynex verify --policy <file> --corpus <file> --base <url> -- <command...>
   status      Show current mode, effective policy, and recent events
   trace       Show a human-readable attack trace
                 vorynex trace [--from <events.jsonl>] [--workload <id>] [--all] [--json]
@@ -85,6 +87,11 @@ func main() {
 		fmt.Println(usage)
 	case "exec":
 		if err := runExec(args[1:]); err != nil {
+			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
+			os.Exit(1)
+		}
+	case "verify":
+		if err := runVerify(args[1:]); err != nil {
 			fmt.Fprintf(os.Stderr, "vorynex: %v\n", err)
 			os.Exit(1)
 		}

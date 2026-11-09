@@ -99,6 +99,25 @@ jobs:
           path: tests/features/evidence/
           if-no-files-found: warn
 
+  # Safe Policy Engine: verify catches the ping conflict, the narrow exec grant
+  # passes, shell/secret/egress attacks are denied (effects checked against a bare
+  # control arm), and a broken candidate is not promoted. Needs Landlock (the
+  # hosted runner kernel has it); the script fails rather than skips without it.
+  safe-policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: safe policy engine
+        run: make safe-policy
+
   # The overhead harness, at a smoke setting: proves it runs and holds its load
   # integrity, without asserting thresholds on a shared runner.
   bench-smoke:
