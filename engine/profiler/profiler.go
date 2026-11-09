@@ -40,6 +40,11 @@ const (
 	Observe Decision = "observe"
 	// Never: a dangerous class that must never be auto-promoted.
 	Never Decision = "never-promote"
+	// Review: observed, not obviously dangerous, but never granted automatically
+	// because anything running during a recording window may be attacker-driven.
+	// Today: any executable other than the workload's own launch binary. A human
+	// adds it to the policy deliberately.
+	Review Decision = "review"
 )
 
 // Capability is one observed behavior.
@@ -57,6 +62,7 @@ type Summary struct {
 	Promotable   int
 	ObserveOnly  int
 	NeverPromote int
+	Review       int
 }
 
 // Profile is the result of observing one or more sessions.
@@ -105,6 +111,20 @@ func Build(sessions [][]audit.Event, opts Options) Profile {
 	perSession := map[key]map[int]bool{}
 	reasons := map[key]string{}
 	never := map[key]bool{}
+	review := map[key]bool{}
+
+	// The first execve of a session is the workload itself. Every other
+	// executable is a review item: observation alone cannot tell a legitimate
+	// helper from tooling an attacker ran during the window.
+	launch := map[string]bool{}
+	for _, events := range sessions {
+		for _, e := range events {
+			if k, t, ok := classify(e); ok && k == KindExec {
+				launch[t] = true
+				break
+			}
+		}
+	}
 
 	for i, events := range sessions {
 		for _, e := range events {
@@ -127,6 +147,8 @@ func Build(sessions [][]audit.Event, opts Options) Profile {
 			if !safe {
 				never[k] = true
 				reasons[k] = reason
+			} else if kind == KindExec && !launch[target] {
+				review[k] = true
 			}
 		}
 	}
@@ -143,6 +165,9 @@ func Build(sessions [][]audit.Event, opts Options) Profile {
 		case never[k]:
 			c.Decision = Never
 			c.Reason = reasons[k]
+		case review[k]:
+			c.Decision = Review
+			c.Reason = "executable other than the workload: needs explicit approval"
 		case c.Sessions >= opts.MinSessions && c.Count >= opts.MinCount:
 			c.Decision = Promote
 		default:
@@ -156,6 +181,8 @@ func Build(sessions [][]audit.Event, opts Options) Profile {
 			p.Summary.ObserveOnly++
 		case Never:
 			p.Summary.NeverPromote++
+		case Review:
+			p.Summary.Review++
 		}
 		p.Capabilities = append(p.Capabilities, c)
 	}
