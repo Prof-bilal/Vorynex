@@ -8,4 +8,4 @@ Also asserted: the natural `exec.allow: [/usr/bin/ping]` is rejected as unenforc
 
 Unit test: `engine/policy/execgrant_test.go`. Synthetic data only; all targets are loopback.
 
-Learning poisoning: `go test ./engine/policygen -run Attacker` asserts shells, renamed shell copies, curl/nc/python3, secret reads, metadata and raw-IP egress seen in every session never reach the generated policy, under both the `observe`/`protect` thresholds and the default ones.
+Learning poisoning: `go test ./engine/policygen -run Attacker` asserts shells, renamed shell copies, curl/nc/python3, secret reads, metadata and raw-IP egress and hostname destinations (an exfil domain) seen in every session never reach the generated policy, under both the `observe`/`protect` thresholds and the default ones.

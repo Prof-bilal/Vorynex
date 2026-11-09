@@ -38,6 +38,7 @@ func TestAttackerDuringRecordingWindowIsNotPromoted(t *testing.T) {
 		rd("/home/app/.ssh/id_rsa"), rd("/home/app/.ssh/id_rsa"),
 		conn("169.254.169.254:80"), conn("169.254.169.254:80"),
 		conn("203.0.113.9:443"), conn("203.0.113.9:443"), // raw IP
+		conn("exfil.attacker.example:443"), conn("exfil.attacker.example:443"), // looks like any hostname
 	}
 	// Baseline: the first exec of a session is the workload itself.
 	session := append([]audit.Event{ex("/opt/app/node")}, attack...)
@@ -59,7 +60,7 @@ func TestAttackerDuringRecordingWindowIsNotPromoted(t *testing.T) {
 				t.Errorf("opts %+v: secret %s promoted to read", opts, bad)
 			}
 		}
-		for _, bad := range []string{"169.254.169.254", "203.0.113.9"} {
+		for _, bad := range []string{"169.254.169.254", "203.0.113.9", "exfil.attacker.example"} {
 			if has(p.Network.Allow, bad) {
 				t.Errorf("opts %+v: destination %s promoted to network.allow", opts, bad)
 			}

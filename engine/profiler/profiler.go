@@ -42,7 +42,8 @@ const (
 	Never Decision = "never-promote"
 	// Review: observed, not obviously dangerous, but never granted automatically
 	// because anything running during a recording window may be attacker-driven.
-	// Today: any executable other than the workload's own launch binary. A human
+	// Today: any executable other than the workload's own launch binary, and any
+	// network destination. A human
 	// adds it to the policy deliberately.
 	Review Decision = "review"
 )
@@ -147,7 +148,9 @@ func Build(sessions [][]audit.Event, opts Options) Profile {
 			if !safe {
 				never[k] = true
 				reasons[k] = reason
-			} else if kind == KindExec && !launch[target] {
+			} else if (kind == KindExec && !launch[target]) || kind == KindConnect {
+				// Any destination seen while recording may be attacker-chosen
+				// (an exfil domain looks like any other hostname).
 				review[k] = true
 			}
 		}
@@ -167,7 +170,11 @@ func Build(sessions [][]audit.Event, opts Options) Profile {
 			c.Reason = reasons[k]
 		case review[k]:
 			c.Decision = Review
-			c.Reason = "executable other than the workload: needs explicit approval"
+			if k.kind == KindConnect {
+				c.Reason = "network destination: needs explicit approval"
+			} else {
+				c.Reason = "executable other than the workload: needs explicit approval"
+			}
 		case c.Sessions >= opts.MinSessions && c.Count >= opts.MinCount:
 			c.Decision = Promote
 		default:
