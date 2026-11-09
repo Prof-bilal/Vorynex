@@ -55,7 +55,7 @@ OUT=$(verify "$W/broad.yaml"); RC=$?; echo "$OUT" | sed 's/^/    /' | head -4
 [[ $RC -eq 2 && "$OUT" == *"NOT ENFORCEABLE AS WRITTEN"* ]] && ok "broad exec grant rejected with capability error" || bad "broad grant accepted (rc=$RC)"
 
 echo "== 2. corrected policy =="
-OUT=$(verify "$W/good.yaml"); RC=$?; echo "$OUT" | sed 's/^/    /'
+OUT=$(VERIFY_FLAGS=--lifecycle verify "$W/good.yaml"); RC=$?; echo "$OUT" | sed 's/^/    /'
 [[ $RC -eq 0 && "$OUT" == *"ping"*"PASS 20/20"* ]] && ok "all required workflows pass, ping 20/20" || bad "corrected policy failed (rc=$RC)"
 
 # Security regression: an INTENTIONALLY vulnerable app, attacked identically in

@@ -18,13 +18,18 @@ import (
 // legitimate workflows at it, and exits 2 (DO NOT ENFORCE) unless every required
 // workflow passes and every declared feature is covered. It changes no state.
 //
-//	vorynex verify --policy <file> --corpus <file> --base <url> [--trace] -- <command...>
+//	vorynex verify --policy <file> --corpus <file> --base <url> [--trace] [--lifecycle] -- <command...>
 func runVerify(args []string) error {
 	var policyPath, corpusPath, base string
-	trace := false
+	trace, lifecycle := false, false
 	ready := 20 * time.Second
 	i := 0
 	for i < len(args) && args[i] != "--" {
+		if args[i] == "--lifecycle" {
+			lifecycle = true
+			i++
+			continue
+		}
 		if args[i] == "--trace" {
 			trace = true
 			i++
@@ -102,10 +107,14 @@ func runVerify(args []string) error {
 		childArgs = append([]string{"-f", "-qq", "-e", "trace=execve,openat,connect", "-o", tracePath, self}, childArgs...)
 		name = st
 	}
-	child := exec.Command(name, childArgs...)
-	child.Stdout, child.Stderr = os.Stderr, os.Stderr
-	child.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	if err := child.Start(); err != nil {
+	start := func() (*exec.Cmd, error) {
+		c := exec.Command(name, childArgs...)
+		c.Stdout, c.Stderr = os.Stderr, os.Stderr
+		c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		return c, c.Start()
+	}
+	child, err := start()
+	if err != nil {
 		return err
 	}
 	defer func() {
@@ -113,22 +122,19 @@ func runVerify(args []string) error {
 		_, _ = child.Process.Wait()
 	}()
 
-	deadline := time.Now().Add(ready)
-	for {
-		if resp, err := http.Get(base + "/health"); err == nil {
-			resp.Body.Close()
-			if resp.StatusCode == 200 {
-				break
-			}
-		}
-		if time.Now().After(deadline) {
-			fmt.Println("Decision: DO NOT ENFORCE\n  - the workload never became healthy under this policy (startup false positive)")
-			os.Exit(2)
-		}
-		time.Sleep(100 * time.Millisecond)
+	if !waitUp(base, ready) {
+		fmt.Println("Decision: DO NOT ENFORCE\n  - the workload never became healthy under this policy (startup false positive)")
+		os.Exit(2)
 	}
 
-	rep := verify.Run(base, corpus)
+	results := verify.Collect(base, corpus)
+	if lifecycle {
+		// Graceful shutdown (SIGTERM must exit 0), then a cold restart that must
+		// become healthy and pass every required workflow once more.
+		corpus.Features = append(corpus.Features, "shutdown", "restart")
+		results = append(results, lifecycleChecks(child, start, base, corpus)...)
+	}
+	rep := verify.Decide(results, corpus)
 	fmt.Print(rep.Format())
 	if trace {
 		// Stop the workload first so strace flushes its file.
@@ -145,4 +151,63 @@ func runVerify(args []string) error {
 		os.Exit(2)
 	}
 	return nil
+}
+
+func waitUp(base string, d time.Duration) bool {
+	deadline := time.Now().Add(d)
+	for time.Now().Before(deadline) {
+		if resp, err := http.Get(base + "/health"); err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == 200 {
+				return true
+			}
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return false
+}
+
+// lifecycleChecks stops the running workload with SIGTERM, expects a clean exit
+// and a released port, restarts it under the same policy, and reruns the corpus.
+// The restarted process is not tracked by the caller's deferred cleanup, so it
+// is killed here.
+func lifecycleChecks(child *exec.Cmd, start func() (*exec.Cmd, error), base string, c verify.Corpus) []verify.Result {
+	var out []verify.Result
+	_ = syscall.Kill(-child.Process.Pid, syscall.SIGTERM)
+	exited := make(chan error, 1)
+	go func() { exited <- child.Wait() }()
+	select {
+	case err := <-exited:
+		msg := ""
+		if err != nil {
+			msg = "SIGTERM did not exit 0: " + err.Error()
+		}
+		out = append(out, verify.Check("graceful-shutdown", "shutdown", msg, false))
+	case <-time.After(5 * time.Second):
+		_ = syscall.Kill(-child.Process.Pid, syscall.SIGKILL)
+		<-exited
+		out = append(out, verify.Check("graceful-shutdown", "shutdown", "no exit within 5s of SIGTERM", false))
+	}
+	next, err := start()
+	if err != nil {
+		return append(out, verify.Check("cold-restart", "restart", err.Error(), false))
+	}
+	defer func() {
+		_ = syscall.Kill(-next.Process.Pid, syscall.SIGKILL)
+		_, _ = next.Process.Wait()
+	}()
+	if !waitUp(base, 20*time.Second) {
+		return append(out, verify.Check("cold-restart", "restart", "restarted workload never became healthy", true))
+	}
+	failed := ""
+	for _, r := range verify.Collect(base, c) {
+		if r.Passed != r.Attempts {
+			failed += r.Workflow.Name + " "
+		}
+	}
+	msg := ""
+	if failed != "" {
+		msg = "after restart these workflows failed: " + failed
+	}
+	return append(out, verify.Check("cold-restart", "restart", msg, false))
 }

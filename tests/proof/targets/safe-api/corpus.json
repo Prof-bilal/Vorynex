@@ -1,5 +1,5 @@
 {
-  "features": ["health", "echo", "read", "write", "ping", "upload", "tmpfile", "dns", "job"],
+  "features": ["health", "echo", "read", "write", "ping", "upload", "tmpfile", "dns", "resolvconf", "worker", "concurrency", "job"],
   "workflows": [
     {"name": "health",  "feature": "health",  "required": true, "count": 20, "path": "/health", "expect_body": "\"status\":\"ok\""},
     {"name": "echo",    "feature": "echo",    "required": true, "count": 60, "path": "/api/echo?x=1", "expect_body": "\"ok\":true"},
@@ -9,6 +9,9 @@
     {"name": "upload",  "feature": "upload",  "required": true, "count": 10, "method": "POST", "path": "/api/upload", "body": "synthetic-upload-bytes", "expect_body": "\"bytes\":22"},
     {"name": "tmpfile", "feature": "tmpfile", "required": true, "count": 10, "path": "/api/tmpfile", "expect_body": "\"ok\":true"},
     {"name": "dns",     "feature": "dns",     "required": true, "count": 5,  "path": "/api/dns", "expect_body": "\"ok\":true"},
+    {"name": "resolvconf", "feature": "resolvconf", "required": true, "count": 5, "path": "/api/resolvconf", "expect_body": "\"ok\":true"},
+    {"name": "worker",  "feature": "worker",  "required": true, "count": 5,  "path": "/api/worker", "expect_body": "\"ok\":true"},
+    {"name": "concurrent-echo", "feature": "concurrency", "required": true, "count": 200, "concurrency": 20, "path": "/api/echo?x=c", "expect_body": "\"ok\":true"},
     {"name": "job",     "feature": "job",     "required": true, "count": 3,  "path": "/api/job", "expect_body": "\"ok\":true"}
   ]
 }

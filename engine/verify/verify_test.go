@@ -63,3 +63,19 @@ func TestAllPass(t *testing.T) {
 		t.Fatalf("should be ready: %v", rep.Reasons)
 	}
 }
+
+func TestConcurrencyAndCheck(t *testing.T) {
+	s := srv()
+	defer s.Close()
+	c := Corpus{Features: []string{"echo", "shutdown"}, Workflows: []Workflow{{Name: "echo", Feature: "echo", Required: true, Count: 100, Concurrency: 10, Path: "/echo"}}}
+	res := Collect(s.URL, c)
+	if res[0].Passed != 100 {
+		t.Fatalf("passed %d/100 under concurrency", res[0].Passed)
+	}
+	if rep := Decide(append(res, Check("graceful-shutdown", "shutdown", "", false)), c); !rep.Ready() {
+		t.Fatalf("should be ready: %v", rep.Reasons)
+	}
+	if rep := Decide(append(res, Check("graceful-shutdown", "shutdown", "no exit within 5s", false)), c); rep.Ready() {
+		t.Fatal("a failed lifecycle check must block")
+	}
+}

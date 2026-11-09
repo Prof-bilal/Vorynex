@@ -29,7 +29,7 @@ const beat = () => { try { fs.writeFileSync(path.join(SCRATCH, 'job-heartbeat'),
 beat();
 setInterval(beat, 200).unref();
 
-http.createServer((req, res) => {
+const server = http.createServer((req, res) => {
   const u = new URL(req.url, 'http://x');
   try {
     switch (u.pathname) {
@@ -63,9 +63,18 @@ http.createServer((req, res) => {
       }
       case '/api/dns':
         return dns.lookup('localhost', (err, addr) => json(res, 200, err ? { error: err.code } : { ok: true, addr }));
+      case '/api/resolvconf': { // what a real resolver does first
+        const t = fs.readFileSync('/etc/resolv.conf', 'utf8'); return json(res, 200, { ok: t.length > 0 });
+      }
+      case '/api/worker': // legitimate worker subprocess: the runtime itself, argv array, no shell
+        return execFile(process.execPath, ['-e', 'process.stdout.write(String(6*7))'], { timeout: 5000 }, (err, out) =>
+          json(res, 200, err ? { error: err.code } : { ok: out === '42' }));
       case '/api/job':
         return json(res, 200, { ok: beats > 0, beats });
       default: return json(res, 404, { error: 'not found' });
     }
   } catch (e) { return json(res, 200, { error: e.code || e.message }); }
-}).listen(PORT, '127.0.0.1');
+});
+server.listen(PORT, '127.0.0.1');
+// Graceful shutdown: stop accepting, drain, exit 0.
+process.on('SIGTERM', () => server.close(() => process.exit(0)));

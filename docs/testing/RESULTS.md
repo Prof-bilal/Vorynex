@@ -12,7 +12,7 @@
 | `make bench` | vorynex vs bare paired delta p50 -0.006 ms, slower in 1/5 rounds; p95 -0.052 ms (2/5); p99 -0.15 ms (2/5). Not consistently one-signed, so **no measurable cost**; CRS +0.9 to +1.9 ms in 5/5 rounds. Memory/CPU/startup not measured. |
 | `make proof-real`, `make bpf-test` | **not run** (Docker/root) |
 
-## Compatibility before/after (safe-api fixture, 168 requests, 9 features)
+## Compatibility before/after (original 9-feature corpus, 168 requests; now extended to 14 checks / 380 requests, all pass with the corrected policy)
 
 | | before (generator default, no exec) | after (exclusive-dir exec grant) |
 |---|---|---|

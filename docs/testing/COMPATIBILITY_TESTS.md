@@ -7,3 +7,5 @@ Each workflow: `feature`, `required`, `count`, request, `expect_status`, `expect
 
 Unit tests: `engine/verify/verify_test.go` (health never overrides a failing workflow; uncovered feature blocks; all-pass).
 Not covered: see roadmap item 4.
+
+Corpus fields added: `concurrency` (parallel workers). `--lifecycle` adds `graceful-shutdown` (SIGTERM must exit 0 within 5s) and `cold-restart` (restart under the same policy, healthy, every workflow passes again). `--trace` appends the syscalls refused with EACCES/EPERM.

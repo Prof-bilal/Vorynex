@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -24,7 +25,8 @@ type Workflow struct {
 	Feature      string `json:"feature"`
 	Required     bool   `json:"required"`
 	Count        int    `json:"count"`
-	Method       string `json:"method,omitempty"` // default GET
+	Concurrency  int    `json:"concurrency,omitempty"` // parallel workers; default 1
+	Method       string `json:"method,omitempty"`      // default GET
 	Path         string `json:"path"`
 	Body         string `json:"body,omitempty"`
 	ExpectStatus int    `json:"expect_status,omitempty"` // default 200
@@ -69,14 +71,37 @@ type Report struct {
 var defaultDeny = regexp.MustCompile(`EACCES|EPERM|Permission denied`)
 
 // Run executes the corpus against base (e.g. http://127.0.0.1:3000).
-func Run(base string, c Corpus) Report {
+func Run(base string, c Corpus) Report { return Decide(Collect(base, c), c) }
+
+// Collect runs every workflow and returns the raw results.
+func Collect(base string, c Corpus) []Result {
 	base = strings.TrimRight(base, "/")
 	client := &http.Client{Timeout: 8 * time.Second}
-	rep := Report{Features: map[string]string{}}
+	var out []Result
 	for _, w := range c.Workflows {
-		rep.Results = append(rep.Results, runWorkflow(client, base, w))
+		out = append(out, runWorkflow(client, base, w))
 	}
-	return decide(rep, c)
+	return out
+}
+
+// Decide turns results (including any caller-added lifecycle results) into a
+// report with feature states and a decision.
+func Decide(results []Result, c Corpus) Report {
+	return decide(Report{Results: results, Features: map[string]string{}}, c)
+}
+
+// Check builds a one-attempt result for a non-HTTP check (restart, shutdown).
+func Check(name, feature, failure string, denied bool) Result {
+	r := Result{Workflow: Workflow{Name: name, Feature: feature, Required: true}, Attempts: 1}
+	if failure == "" {
+		r.Passed = 1
+	} else {
+		r.Sample = failure
+		if denied {
+			r.Denied = 1
+		}
+	}
+	return r
 }
 
 func runWorkflow(client *http.Client, base string, w Workflow) Result {
@@ -97,29 +122,46 @@ func runWorkflow(client *http.Client, base string, w Workflow) Result {
 	if w.DenySignature != "" {
 		deny = regexp.MustCompile(w.DenySignature)
 	}
+	workers := max(w.Concurrency, 1)
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	jobs := make(chan struct{}, r.Attempts)
 	for i := 0; i < r.Attempts; i++ {
-		req, _ := http.NewRequest(method, base+w.Path, strings.NewReader(w.Body))
-		resp, err := client.Do(req)
-		var body string
-		status := 0
-		if err == nil {
-			b, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<16))
-			resp.Body.Close()
-			body, status = string(b), resp.StatusCode
-		} else {
-			body = err.Error()
-		}
-		if err == nil && status == want && (bodyRe == nil || bodyRe.MatchString(body)) {
-			r.Passed++
-			continue
-		}
-		if deny.MatchString(body) {
-			r.Denied++
-		}
-		if r.Sample == "" {
-			r.Sample = fmt.Sprintf("status %d: %.100s", status, body)
-		}
+		jobs <- struct{}{}
 	}
+	close(jobs)
+	for k := 0; k < workers; k++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for range jobs {
+				req, _ := http.NewRequest(method, base+w.Path, strings.NewReader(w.Body))
+				resp, err := client.Do(req)
+				var body string
+				status := 0
+				if err == nil {
+					b, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<16))
+					resp.Body.Close()
+					body, status = string(b), resp.StatusCode
+				} else {
+					body = err.Error()
+				}
+				mu.Lock()
+				if err == nil && status == want && (bodyRe == nil || bodyRe.MatchString(body)) {
+					r.Passed++
+				} else {
+					if deny.MatchString(body) {
+						r.Denied++
+					}
+					if r.Sample == "" {
+						r.Sample = fmt.Sprintf("status %d: %.100s", status, body)
+					}
+				}
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
 	return r
 }
 
