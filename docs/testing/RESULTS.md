@@ -8,7 +8,7 @@
 | `make lab` | Overall: PASS |
 | `make proof` | ran to completion; evidence under `tests/proof/evidence/` |
 | `make fp` | unchanged: no-exec 120/140 (14.29%), allow-sh 140/140 with the in-grant injection LANDED |
-| `make safe-policy` | 10 passed, 0 failed |
+| `make safe-policy` | 15 passed, 0 failed (includes trace, lifecycle, `run --watch` rollback, control arm) |
 | `make bench` | vorynex vs bare paired delta p50 -0.006 ms, slower in 1/5 rounds; p95 -0.052 ms (2/5); p99 -0.15 ms (2/5). Not consistently one-signed, so **no measurable cost**; CRS +0.9 to +1.9 ms in 5/5 rounds. Memory/CPU/startup not measured. |
 | `make proof-real`, `make bpf-test` | **not run** (Docker/root) |
 

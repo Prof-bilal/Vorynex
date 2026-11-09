@@ -10,5 +10,5 @@ Not done (honest list):
 4. **Mostly done.** Corpus is now 14 checks / 380 requests: adds real-resolver read, worker subprocess (the runtime, argv, no shell), 200 concurrent requests, graceful shutdown (SIGTERM exits 0) and cold restart (`verify --lifecycle`). **It found a real false positive:** on systemd-resolved hosts `/etc/resolv.conf` is a symlink into `/run`, so any app doing DNS got EACCES. Fixed in `spawntime` by granting read on just that file (and `/etc/hosts`, `/etc/nsswitch.conf`), not `/run`. Still open: outbound API and database calls, retries, uploads of realistic size, scheduled tasks, dependency updates; no Express/Next.js fixtures (Express is not installed here, and none was claimed supported). TCP DNS fallback is still denied by the TCP-connect rule.
 5. Exception schema with approver/reason; approval workflow; `conflicts`/`rollback` CLI verbs.
 6. Tier 1, Docker integration, performance of memory/CPU/startup: not measured.
-7. Competitor research was not source-verified (see COMPETITIVE_POLICY_ENGINEERING.md).
+7. **Partly done:** AppArmor, SPO, Tetragon and Falco claims that matter to design were checked against source (see COMPETITIVE_POLICY_ENGINEERING.md). Cilium, Argo Rollouts and Aikido remain unverified.
 8. Ping via the private copy goes stale on package updates; re-stage on update.
