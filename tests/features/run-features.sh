@@ -124,7 +124,8 @@ check "policy verify rejects a tampered policy" $?
 
 # --- exec / protect / status ------------------------------------------------
 step "exec, protect, status"
-"$V" exec --policy "$WORK/policy.yaml" -- /usr/bin/env true >"$OUT/exec.txt" 2>&1
+# The policy was generated for node but we launch env, so node's whole bin dir is a broad grant; this test is about exec running, not exec narrowness (tests/safe-policy covers that).
+VORYNEX_ACCEPT_BROAD_EXEC=1 "$V" exec --policy "$WORK/policy.yaml" -- /usr/bin/env true >"$OUT/exec.txt" 2>&1
 check "exec runs a command under a policy" $?
 "$V" protect --from "$TRACE" --out "$WORK/protect.yaml" -- /usr/bin/env true \
   >"$OUT/protect-from.txt" 2>&1

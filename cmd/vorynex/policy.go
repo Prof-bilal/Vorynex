@@ -198,6 +198,9 @@ func printGenSummary(res policygen.Result) {
 	for _, d := range res.Denied {
 		fmt.Printf("  denied %s %s  (%s)\n", d.Kind, d.Target, d.Reason)
 	}
+	for _, r := range res.Review {
+		fmt.Printf("  review %s %s  (%s) — not granted; add it to the policy yourself if it is legitimate\n", r.Kind, r.Target, r.Reason)
+	}
 }
 
 // signPolicyFile signs data with an Ed25519 key stored at keyPath (a 32-byte hex

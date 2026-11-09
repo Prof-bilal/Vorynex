@@ -36,6 +36,10 @@ import (
 // including the workload's own runtime.
 var readOnlyRuntime = []string{"/usr/lib", "/usr/lib64", "/usr/share", "/lib", "/lib64", "/etc", "/proc"}
 
+// resolverFiles are single files granted read-only so name resolution works
+// when they are symlinks to somewhere ungranted.
+var resolverFiles = []string{"/etc/resolv.conf", "/etc/hosts", "/etc/nsswitch.conf"}
+
 // Run applies the policy's runtime boundary and then replaces the current
 // process with cmd. cmd[0] must exist; it is resolved via LookPath.
 func Run(cmd []string, p policy.Policy) error {
@@ -51,6 +55,17 @@ func Run(cmd []string, p policy.Policy) error {
 		return err
 	}
 	argv := append([]string{abs}, cmd[1:]...)
+
+	// Never silently widen a narrow exec rule: Landlock grants execute per
+	// directory, so refuse a grant it cannot enforce as written.
+	if broad := policy.BroadExecGrants(abs, p.Process.Exec.Allow, p.Process.Exec.Deny); len(broad) > 0 {
+		if os.Getenv("VORYNEX_ACCEPT_BROAD_EXEC") != "1" {
+			return broad[0]
+		}
+		for _, b := range broad {
+			fmt.Fprintf(os.Stderr, "vorynex: WARNING accepted broad exec grant: %s makes %d other executables in %s runnable\n", b.Allow, len(b.Others), b.Dir)
+		}
+	}
 
 	// Landlock and no_new_privs are per-thread; pin this goroutine's OS thread
 	// and exec from it so the workload inherits the boundary.
@@ -126,6 +141,16 @@ func restrict(p policy.Policy, exePath string) error {
 	for _, dir := range readOnlyRuntime {
 		if isDir(dir) {
 			if err := addPathRule(fd, dir, read); err != nil {
+				return err
+			}
+		}
+	}
+	// Name resolution reads these. On systemd-resolved hosts /etc/resolv.conf is
+	// a symlink into /run, outside every granted tree, so DNS would fail with
+	// EACCES. The rule follows the symlink and grants only that one file.
+	for _, f := range resolverFiles {
+		if st, err := os.Stat(f); err == nil && st.Mode().IsRegular() {
+			if err := addPathRule(fd, f, accReadFile); err != nil {
 				return err
 			}
 		}

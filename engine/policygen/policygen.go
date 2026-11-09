@@ -35,6 +35,9 @@ type Result struct {
 	// Denied lists never-promote capabilities turned into explicit denies,
 	// with the reason they were excluded.
 	Denied []DeniedCapability
+	// Review lists capabilities observed but deliberately not granted
+	// (executables other than the workload, network destinations).
+	Review []profiler.Capability
 }
 
 // DeniedCapability is a never-promote capability recorded as a deny.
@@ -57,6 +60,7 @@ func Generate(prof profiler.Profile, opts Options) Result {
 	addHost := func(s string) { p.Network.Allow = addUnique(p.Network.Allow, s, seen) }
 
 	var denied []DeniedCapability
+	var review []profiler.Capability
 	for _, c := range prof.Capabilities {
 		if c.Decision == profiler.Never {
 			denied = append(denied, DeniedCapability{Kind: c.Kind, Target: c.Target, Reason: c.Reason})
@@ -66,6 +70,10 @@ func Generate(prof profiler.Profile, opts Options) Result {
 			case profiler.KindRead, profiler.KindWrite:
 				addDeny(c.Target)
 			}
+			continue
+		}
+		if c.Decision == profiler.Review {
+			review = append(review, c)
 			continue
 		}
 		if c.Decision != profiler.Promote {
@@ -92,7 +100,7 @@ func Generate(prof profiler.Profile, opts Options) Result {
 	sort.Strings(p.Process.Exec.Deny)
 	sort.Strings(p.Network.Allow)
 
-	return Result{Policy: p, Denied: denied}
+	return Result{Policy: p, Denied: denied, Review: review}
 }
 
 func addUnique(list []string, s string, seen map[string]bool) []string {

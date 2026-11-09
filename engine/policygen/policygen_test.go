@@ -54,8 +54,15 @@ func TestGenerate(t *testing.T) {
 	if contains(p.Network.Allow, "169.254.169.254") {
 		t.Errorf("metadata must never be allowlisted: %v", p.Network.Allow)
 	}
-	if !contains(p.Network.Allow, "api.stripe.com") {
-		t.Errorf("host allow missing api.stripe.com: %v", p.Network.Allow)
+	if contains(p.Network.Allow, "api.stripe.com") {
+		t.Errorf("observed destinations need review, never auto-granted: %v", p.Network.Allow)
+	}
+	foundReview := false
+	for _, r := range res.Review {
+		foundReview = foundReview || r.Target == "api.stripe.com:443" || r.Target == "api.stripe.com"
+	}
+	if !foundReview {
+		t.Errorf("api.stripe.com should be listed for review: %+v", res.Review)
 	}
 	if !contains(p.Filesystem.Deny, "/app/.env") {
 		t.Errorf("secret path must be denied: %v", p.Filesystem.Deny)
