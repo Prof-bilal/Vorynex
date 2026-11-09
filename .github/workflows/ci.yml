@@ -115,6 +115,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: allow unprivileged ICMP (prerequisite for the ping workflow)
+        run: sudo sysctl -w net.ipv4.ping_group_range="0 2147483647"
       - name: safe policy engine
         run: make safe-policy
 

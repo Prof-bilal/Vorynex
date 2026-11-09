@@ -9,6 +9,15 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/../.." && pwd)"
 W="$(mktemp -d /tmp/vorynex-safe.XXXXXX)"; trap 'kill $(jobs -p) 2>/dev/null; rm -rf "$W"' EXIT
+# Prerequisite, not a Vorynex behaviour: under no_new_privs a ping binary cannot use
+# file capabilities, so it needs unprivileged ICMP sockets. Fail loudly rather than
+# report a confusing ping failure (or skip and call it a pass).
+read -r LO HI < /proc/sys/net/ipv4/ping_group_range 2>/dev/null || { LO=1; HI=0; }
+if ! [[ $(id -g) -ge $LO && $(id -g) -le $HI ]]; then
+  echo "prerequisite missing: net.ipv4.ping_group_range ($LO $HI) excludes gid $(id -g)." >&2
+  echo "fix: sudo sysctl -w net.ipv4.ping_group_range=\"0 2147483647\"" >&2
+  exit 1
+fi
 PASS=0; FAIL=0
 ok()  { echo "  PASS  $1"; PASS=$((PASS+1)); }
 bad() { echo "  FAIL  $1"; FAIL=$((FAIL+1)); }
