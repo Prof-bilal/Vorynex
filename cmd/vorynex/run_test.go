@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -55,5 +57,28 @@ func TestWaitHealthyRequiresConsecutivePasses(t *testing.T) {
 	}()
 	if err := waitHealthy("test -f "+flag, 20*time.Millisecond, 3*time.Second, 2); err != nil {
 		t.Fatalf("should become healthy after the flag appears: %v", err)
+	}
+}
+
+func TestWatchCorpusDetectsLateRegression(t *testing.T) {
+	var bad atomic.Bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if bad.Load() {
+			w.Write([]byte(`{"error":"EACCES"}`))
+			return
+		}
+		w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+	dir := t.TempDir()
+	corpus := filepath.Join(dir, "c.json")
+	os.WriteFile(corpus, []byte(`{"features":["f"],"workflows":[{"name":"f","feature":"f","required":true,"count":1,"path":"/","expect_body":"ok"}]}`), 0o644)
+	never := make(chan struct{})
+	if err := watchCorpus(corpus, srv.URL, 120*time.Millisecond, 20*time.Millisecond, never); err != nil {
+		t.Fatalf("healthy window failed: %v", err)
+	}
+	go func() { time.Sleep(60 * time.Millisecond); bad.Store(true) }()
+	if err := watchCorpus(corpus, srv.URL, time.Second, 20*time.Millisecond, never); err == nil {
+		t.Fatal("regression after the first pass was not detected")
 	}
 }

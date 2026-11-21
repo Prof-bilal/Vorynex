@@ -52,6 +52,9 @@ type State struct {
 	PreviousMode       Mode   `json:"previous_mode,omitempty"`
 	PreviousPolicyPath string `json:"previous_policy_path,omitempty"`
 	PreviousPolicySHA  string `json:"previous_policy_sha256,omitempty"`
+
+	// Pending is set while a supervised transition is applied but unverified.
+	Pending *Pending `json:"pending,omitempty"`
 }
 
 // Digest returns the SHA-256 of a policy file.
@@ -97,6 +100,7 @@ func Revert() (State, error) {
 		s.PreviousMode = ""
 		s.PreviousPolicyPath = ""
 		s.PreviousPolicySHA = ""
+		s.Pending = nil
 	})
 }
 

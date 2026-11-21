@@ -63,7 +63,7 @@ run_variant() { # $1=label, $2=policy, $3=human description
   echo "-- $label: $desc --"
   rm -f "$MARKER" "$STOLEN"
   free_port=$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1])')
-  PORT="$free_port" NODE_ENV=test "$WORK/vorynex" exec --policy "$policy" -- \
+  PORT="$free_port" NODE_ENV=test VORYNEX_ACCEPT_BROAD_EXEC=1 "$WORK/vorynex" exec --policy "$policy" -- \
     node "$APP_DIR/server.js" >"$WORK/app-$label.log" 2>&1 &
   APP_PID=$!
   for _ in $(seq 1 100); do

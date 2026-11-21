@@ -1,4 +1,4 @@
-.PHONY: build test vet fmt ci lab bpf bpf-test context proof proof-real bench release install e2e clean
+.PHONY: safe-policy build test vet fmt ci lab bpf bpf-test context proof proof-real bench release install e2e clean
 
 VERSION ?= $(shell cat VERSION 2>/dev/null || echo 0.0.0-dev)
 COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
@@ -125,3 +125,9 @@ install:
 clean:
 	go clean ./...
 	rm -rf tests/security-lab/evidence tests/proof/evidence tests/proof/evidence-real tests/proof/evidence-bench tests/proof/evidence-benign tests/e2e/evidence tests/features/evidence
+
+# Safe Policy Engine demo: unsafe policy caught by verify, corrected policy
+# passes, shell/secret/egress attacks denied with their effects checked against a
+# bare control arm, broken candidate not promoted. Local, no root, no Docker.
+safe-policy:
+	tests/safe-policy/run-demo.sh

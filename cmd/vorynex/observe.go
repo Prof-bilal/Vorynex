@@ -105,7 +105,12 @@ func printObserveReport(path string, eventCount int, prof profiler.Profile, bloc
 		fmt.Printf("  %s  %s %s  (%s)\n", b.Time.Format("15:04:05"), b.Kind, b.Target, b.Reason)
 	}
 
-	fmt.Printf("\nSummary: %d promotable, %d observe-only, %d never-promote.\n",
-		prof.Summary.Promotable, prof.Summary.ObserveOnly, prof.Summary.NeverPromote)
+	fmt.Printf("\nSummary: %d promotable, %d observe-only, %d never-promote, %d need review.\n",
+		prof.Summary.Promotable, prof.Summary.ObserveOnly, prof.Summary.NeverPromote, prof.Summary.Review)
+	for _, c := range prof.Capabilities {
+		if c.Decision == profiler.Review {
+			fmt.Printf("  review: %s %s  (%s)\n", c.Kind, c.Target, c.Reason)
+		}
+	}
 	fmt.Println("\nNothing was enforced. Review, then run `vorynex protect`.")
 }
